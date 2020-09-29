@@ -5,18 +5,19 @@ USE vuelos;
 CREATE TABLE `vuelos`.`usuarioOperativo` (
   idUsuarioOperativo INT NOT NULL AUTO_INCREMENT,
   username VARCHAR(35) NOT NULL,
-  contrasenia VARCHAR(20) NOT NULL,
+  contrasenia VARCHAR(20) NOT NULL, /*REPASAR EL ENCRIPTADO Y DESENCRIPTADO*/
   PRIMARY KEY (`idUsuarioOperativo`)
 );
 
 CREATE TABLE `vuelos`.`usuarioGeneral`(
-  pasaporte INT NOT NULL,
+  idUsuarioGeneral INT NOT NULL AUTO_INCREMENT,
+  pasaporte VARCHAR(25) NOT NULL UNIQUE,
   nombre VARCHAR(35) NOT NULL,
   apellido1 VARCHAR(35) NOT NULL,
   apellido2 VARCHAR(35) NOT NULL,
   fechaNacimiento date not null, 
   sexo char(1),
-  PRIMARY KEY (`pasaporte`)
+  PRIMARY KEY (`idUsuarioGeneral`)
 );
 
 /*********************MARCAS, MODELOS Y AVIONES*******************************/
@@ -29,7 +30,7 @@ CREATE TABLE `vuelos`.`marca`(
 CREATE TABLE `vuelos`.`modelo` (
   idModelo INT NOT NULL AUTO_INCREMENT, 
   descripcion VARCHAR(20) NOT NULL, 
-  anio DATE NOT NULL,
+  anio INT NOT NULL,
   idMarca INT NOT NULL,
   PRIMARY KEY(`idModelo`),
   KEY `fk_idMarca` (`idMarca`),
@@ -38,8 +39,8 @@ CREATE TABLE `vuelos`.`modelo` (
 
 CREATE TABLE `vuelos`.`avion` (
   idAvion INT NOT NULL AUTO_INCREMENT,
-  matricula INT NOT NULL,
-  anio VARCHAR(5) NOT NULL,
+  matricula VARCHAR(10) NOT NULL UNIQUE,
+  anio INT NOT NULL,
   idModelo INT NOT NULL,
   PRIMARY KEY(`idAvion`),
   KEY `fk_idModelo` (`idModelo`),
@@ -49,13 +50,13 @@ CREATE TABLE `vuelos`.`avion` (
 /**********************TIPO ASIENTO, ASIENTO Y VUELO***************************/
 CREATE TABLE `vuelos`.`tipoAsiento` (
   idTipoAsiento INT NOT NULL AUTO_INCREMENT,
-  tipo VARCHAR(35) NOT NULL,
-  precio DECIMAL(10,2),
+  tipo CHAR(2) NOT NULL CHECK(tipo in('BI','BA','SI','SA','EI','EA')),
+  precio DECIMAL(10,2) CHECK(precio>0),
   PRIMARY KEY(`idTipoAsiento`)
 );
 
 CREATE TABLE `vuelos`.`vuelo` (
-  idVuelo INT NOT NULL,
+  idVuelo INT NOT NULL AUTO_INCREMENT,
   origen VARCHAR(45) NOT NULL,
   destino VARCHAR(45) NOT NULL,
   fechaSalida DATETIME NOT NULL,
@@ -67,36 +68,36 @@ CREATE TABLE `vuelos`.`vuelo` (
 );
 
 CREATE TABLE `vuelos`.`asiento` (
-  idAsiento INT NOT NULL,
+  idAsiento INT NOT NULL AUTO_INCREMENT,
   nombre VARCHAR(10),
-  fila VARCHAR(5),
+  fila CHAR(1),
   estaOcupado BIT,
   idTipoAsiento INT NOT NULL,
   idVuelo INT NOT NULL,
+  idReservacion INT NOT NULL,
   PRIMARY KEY(`idAsiento`),
   KEY `fk_idTipoAsiento` (`idTipoAsiento`),
 	CONSTRAINT `fk_idTipoAsiento` FOREIGN KEY(`idTipoAsiento`) REFERENCES `tipoAsiento`(`idTipoAsiento`),
   KEY `fk_idVuelo`(`idVuelo`),
-	CONSTRAINT `fk_idVuelo` FOREIGN KEY(`idVuelo`) REFERENCES `vuelo`(`idVuelo`)
+	CONSTRAINT `fk_idVuelo` FOREIGN KEY(`idVuelo`) REFERENCES `vuelo`(`idVuelo`),
+  KEY `fk_idReservacion`(`idReservacion`),
+	CONSTRAINT `fk_idReservacion` FOREIGN KEY(`idReservacion`) REFERENCES `reservacion`(`idReservacion`)
 );
 
 /***********************RESERVACION Y USUARIOXRESERVACION**********************/
 CREATE TABLE `vuelos`.`reservacion` (
   idReservacion INT NOT NULL,
   fecha DATE NOT NULL,
-  idAsiento INT NOT NULL,
-  PRIMARY KEY(idReservacion),
-  KEY `fk_idAsiento`(`idAsiento`),
-	CONSTRAINT `fk_idAsiento` FOREIGN KEY(`idAsiento`) REFERENCES `asiento`(`idAsiento`)
+  PRIMARY KEY(idReservacion)
 );
 
 CREATE TABLE `vuelos`.`usuarioXreservacion` (
   idUsuarioXReservacion INT NOT NULL AUTO_INCREMENT,
-  pasaporte INT NOT NULL,
+  idUsuarioGeneral INT NOT NULL,
   idReservacion INT NOT NULL,
   PRIMARY KEY(`idUsuarioXReservacion`),
-  KEY `fk_pasaporte`(`pasaporte`),
-	CONSTRAINT `fk_pasaporte` FOREIGN KEY(`pasaporte`) REFERENCES `usuarioGeneral`(`pasaporte`),
-  KEY `fk_idReservacion`(`idReservacion`),
-	CONSTRAINT `fk_idReservacion` FOREIGN KEY(`idReservacion`) REFERENCES `reservacion`(`idReservacion`)
+  KEY `fk_idUsuarioGeneral`(`idUsuarioGeneral`),
+	CONSTRAINT `fk_idUsuarioGeneral` FOREIGN KEY(`idUsuarioGeneral`) REFERENCES `usuarioGeneral`(`idUsuarioGeneral`),
+  KEY `fk_idReservacion2`(`idReservacion`),
+	CONSTRAINT `fk_idReservacion2` FOREIGN KEY(`idReservacion`) REFERENCES `reservacion`(`idReservacion`)
 );
