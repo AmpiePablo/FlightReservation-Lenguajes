@@ -6,6 +6,16 @@
 
 #include "structs.h"
 
+
+void MenuOperativo();
+void MenuAviones();
+void IncluirAvion();
+void EliminarAvion();
+void MostrarAviones();
+void DisplayResult(MYSQL_RES*);
+int ExecuteQuery(MYSQL_RES**, const char*);
+
+
 typedef struct {
 	char *server;
 	char *user;
