@@ -16,7 +16,7 @@ CREATE TABLE `vuelos`.`usuarioGeneral`(
   apellido1 VARCHAR(35) NOT NULL,
   apellido2 VARCHAR(35) NOT NULL,
   fechaNacimiento date not null, 
-  sexo char(1),
+  sexo char(1) NOT NULL CHECK( sexo in ('F', 'M') ),
   PRIMARY KEY (`idUsuarioGeneral`)
 );
 
@@ -86,7 +86,7 @@ CREATE TABLE `vuelos`.`asiento` (
 
 /***********************RESERVACION Y USUARIOXRESERVACION**********************/
 CREATE TABLE `vuelos`.`reservacion` (
-  idReservacion INT NOT NULL,
+  idReservacion INT NOT NULL AUTO_INCREMENT,
   fecha DATE NOT NULL,
   PRIMARY KEY(idReservacion)
 );
