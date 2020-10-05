@@ -1,3 +1,4 @@
+ 
 CREATE DATABASE vuelos;
 USE vuelos;
 
@@ -50,8 +51,9 @@ CREATE TABLE `vuelos`.`avion` (
 /**********************TIPO ASIENTO, ASIENTO Y VUELO***************************/
 CREATE TABLE `vuelos`.`tipoAsiento` (
   idTipoAsiento INT NOT NULL AUTO_INCREMENT,
-  tipo CHAR(2) NOT NULL CHECK(tipo in('BI','BA','SI','SA','EI','EA')),
-  precio DECIMAL(10,2) CHECK(precio>0),
+  tipo char(1) not null check(tipo in('B','S','E')),
+  precioAdulto decimal(10,2) check(precioAdulto>0),
+  precioInfante decimal(10,2) check(precioInfante>0),
   PRIMARY KEY(`idTipoAsiento`)
 );
 
@@ -74,7 +76,7 @@ CREATE TABLE `vuelos`.`asiento` (
   estaOcupado BIT,
   idTipoAsiento INT NOT NULL,
   idVuelo INT NOT NULL,
-  idReservacion INT NOT NULL,
+  idReservacion INT,
   PRIMARY KEY(`idAsiento`),
   KEY `fk_idTipoAsiento` (`idTipoAsiento`),
 	CONSTRAINT `fk_idTipoAsiento` FOREIGN KEY(`idTipoAsiento`) REFERENCES `tipoAsiento`(`idTipoAsiento`),
@@ -101,3 +103,74 @@ CREATE TABLE `vuelos`.`usuarioXreservacion` (
   KEY `fk_idReservacion2`(`idReservacion`),
 	CONSTRAINT `fk_idReservacion2` FOREIGN KEY(`idReservacion`) REFERENCES `reservacion`(`idReservacion`)
 );
+
+
+
+
+
+
+/***********************PROCEDIMIENTOS ALMACENADOS*******************************/
+delimiter //
+CREATE PROCEDURE consultaReserva(in pIdReservacion int, in pPasaporte varchar(25))
+BEGIN
+  select usuarioXreservacion.idReservacion, usuarioGeneral.pasaporte, usuarioGeneral.nombre,
+  usuarioGeneral.apellido1, usuarioGeneral.apellido2,reservacion.fecha,asiento.fila, asiento.nombre,
+  tipoAsiento.precioAdulto,vuelo.origen,vuelo.destino,vuelo.fechaSalida from usuarioXreservacion
+  inner join usuarioGeneral on (usuarioXreservacion.idUsuarioGeneral=usuarioGeneral.idUsuarioGeneral)
+  inner join reservacion on (usuarioXreservacion.idReservacion = reservacion.idReservacion)
+  inner join asiento on (reservacion.idReservacion=asiento.idReservacion)
+  inner join tipoAsiento on (asiento.idTipoAsiento=tipoAsiento.idTipoAsiento)
+  inner join vuelo on(asiento.idVuelo=vuelo.idVuelo)
+  where usuarioXreservacion.idReservacion = pIdReservacion and usuarioGeneral.pasaporte = pPasaporte
+  order by pasaporte
+END //
+
+
+
+
+
+
+/***********************INSERTS IN TABLES***************************************/
+INSERT INTO usuarioOperativo(username,contrasenia) values('pablo','1234');
+INSERT INTO usuarioOperativo(username,contrasenia) values('landon','1234');
+
+INSERT INTO usuarioGeneral(pasaporte,nombre,apellido1,apellido2,fechaNacimiento,sexo) values('702680070','jose','lopez','mora','1999-04-04','m');
+INSERT INTO usuarioGeneral(pasaporte,nombre,apellido1,apellido2,fechaNacimiento,sexo) values('702560789','landon','piedra','mora','1997-05-05','m');
+INSERT INTO usuarioGeneral(pasaporte,nombre,apellido1,apellido2,fechaNacimiento,sexo) values('123640502','rosa','mora','mora','2005-01-05','m');
+
+INSERT INTO marca(descripcion)values('airbus'),('boeing'),('bombardier');
+
+INSERT INTO modelo(descripcion,anio,idMarca) values('boeing 747',2010,2),('boeing 777',15,2),('A330',2016,1),('B880',2011,3);
+
+
+insert into avion(matricula,anio,idModelo)values('BB110-2',2018,4);
+insert into avion(matricula,anio,idModelo)values('AA1234-6',2019,3);
+  
+
+insert into tipoAsiento(tipo,precioAdulto,precioInfante) values('B',1500,1000);
+insert into tipoAsiento(tipo,precioAdulto,precioInfante) values('S',1000,750);
+insert into tipoAsiento(tipo,precioAdulto,precioInfante) values('E',750,500);
+
+
+
+
+insert into reservacion(fecha) values('2020-10-10');
+insert into reservacion(fecha) values('2020-10-09');
+insert into reservacion(fecha) values('2020-10-12');
+
+
+insert into asiento(nombre,fila,estaOcupado,idTipoAsiento,idVuelo,idReservacion)
+values('A_BL_1','A',0,7,1,1);
+insert into asiento(nombre,fila,estaOcupado,idTipoAsiento,idVuelo,idReservacion) 
+values('A_BL_2','A',0,7,1,1);
+insert into asiento(nombre,fila,estaOcupado,idTipoAsiento,idVuelo,idReservacion)
+values('B_BL_1','B',0,7,1,2);
+insert into asiento(nombre,fila,estaOcupado,idTipoAsiento,idVuelo,idReservacion) 
+values('B_BL_2','B',0,7,1,2);
+insert into asiento(nombre,fila,estaOcupado,idTipoAsiento,idVuelo,idReservacion) 
+values('C_SL_2','C',0,8,1,2);
+
+insert into usuarioXreservacion(idUsuarioGeneral,idReservacion) values(1,1);
+insert into usuarioXreservacion(idUsuarioGeneral,idReservacion) values(2,2);
+insert into usuarioXreservacion(idUsuarioGeneral,idReservacion) values(3,2);
+insert into usuarioXreservacion(idUsuarioGeneral,idReservacion) values(1,2);
