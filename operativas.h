@@ -9,8 +9,10 @@
 
 #include "structs.h"
 #include "get_input.h"
+#include "crypt.h"
 
 
+void LoginOperativo();
 void MenuOperativo();
 void MenuAviones();
 void IncluirAvion();
@@ -28,6 +30,76 @@ typedef struct {
 } UserData;
 
 UserData UD = {"localhost", "root", "ampie0422", "vuelos"};
+
+/*
+ * LoginOperativo
+ *
+ * Entradas:
+ *		Un nombre de usuario y una contraseña, digitados
+ *		por el usuario por consola.
+ *
+ * Objetivo:
+ *		Permitir que el usuario del programa intente
+ *		loguearse como un usuario operativo, bajo la
+ *		condición de que ingrese un usuario que exista
+ *		y su contraseña respectiva correctamente.
+ *		
+ */
+void LoginOperativo() {
+	
+	MYSQL_RES *res;
+	MYSQL_ROW row;
+	
+	char *us;
+	char *pw;
+	
+	char *query;
+	
+	short no_salir = 1;
+	
+	do {
+		puts("Usuario: \t");
+		us = GetInput();
+		puts("Contrasenia: \t");
+		pw = GetInput();
+		Encrypt(pw);
+		
+		query = (char*) malloc ( (84 + strlen(us) + strlen(pw) + 1) * sizeof(char) );
+		
+		sprintf(query, 
+			"select "
+				"idUsuarioOperativo "
+			"from "
+				"usuarioOperativo "
+			"where "
+				"username='%s' and contrasenia='%s'", us, pw)
+		
+		ExecuteQuery(&res, query);
+		
+		if (res != NULL) {
+			printf("Bienvenido, %s!\n", us);
+			mysql_free_result(res);
+			
+			MenuOperativo();
+			
+		} else {
+			puts(
+				"Usuario o Contrasenia Incorrecta.\n"
+				"Desea volver a intentar? (s/n): ");
+			
+			char confirmacion = tolower(getchar());
+			while (getchar() != '\n');
+			
+			if (confirmacion != 's')
+				no_salir = 0;
+		}
+		
+		free(us);
+		free(pw);
+		free(query);
+		
+	} while (no_salir);
+}
 
 /*
  * MenuOperativo
@@ -61,7 +133,7 @@ void MenuOperativo() {
 		"2. Carga de Usuarios\n"
 		"3. Estado de Vuelo\n"
 		"4. Estadisticas\n"
-		"5. Regresar\n"
+		"5. Salir\n"
 		"\n"
 		"-> ";
 	
@@ -230,7 +302,6 @@ void IncluirAvion() {
 	char *input = GetInput();									//
 	int opcion = atoi(input);									// MARCAS
 	free(input);												//
-	printf("%d\n", mysql_num_fields(res));
 																//
 	if (opcion <= 0 || opcion > mysql_num_fields(res)+1) {		//
 		puts("\nError: Marca Invalida\n");						//
@@ -254,9 +325,7 @@ void IncluirAvion() {
 	mysql_free_result(res);									//
 	ExecuteQuery(&res, modelo_query);						//
 															//
-	printf("%s\n", modelo_query);
 	free(modelo_query);										//
-	printf("%s\n", "sigue3...1");
 															//
 	puts("\nSelecione un Modelo:\n");						//
 															//
@@ -287,7 +356,7 @@ void IncluirAvion() {
 																// AÑO
 	if (av->anio <= 0) {										//
 		puts("\nError: Anio Invalido\n");						//
-		free(input);
+		free(input);											//
 		goto LiberarAvion;										//
 	}															//
 	
@@ -309,36 +378,33 @@ void IncluirAvion() {
 		goto LiberarAvion;																// CONFIRMACIÓN
 	}																					// E INSERCIÓN
 																						//
-	char *insertion_query = (char*) malloc((56 + strlen(av->matricula) + strlen(input) + strlen(idModelo) + 1) * sizeof(char));																//
+	char *insertion_query = (char*) malloc((56 + strlen(av->matricula) + strlen(input) + strlen(idModelo) + 1) * sizeof(char));
 																						//
 	sprintf(insertion_query,															//
-		"insert into avion(matricula,anio,idModelo) values ('%s', %s, %s)",										//
+		"insert into avion(matricula,anio,idModelo) values ('%s', %s, %s)",				//
 		av->matricula, input, idModelo);												//
 																						//
 	mysql_free_result(res);																//
 	int error = ExecuteQuery(&res, insertion_query);									//
 																						//
 	free(insertion_query);																//
-	free(input);
+	free(input);																		//
 																						//
 	if (error) {																		//
-	    puts("\nError insertando Avion (Asegurese de que la Matricula sea unica)\n");
-	    printf("%d\n", error);	//
+	    puts("\nError insertando Avion (Asegurese de que la Matricula sea unica)\n");	//
+	    printf("%d\n", error);															//
 		goto LiberarAvion;																//
 	}																					//
 	printf("\nAvion de matricula %s insertado exitosamente.\n", av->matricula);			//
 	
 	
 	LiberarAvion:								//
-		//free(mo->descripcion);					//
 		free(mo);								//
 												//
 	ErrorModelo:								// LIBERACIÓN DE MEMORIA
-		//free(ma->descripcion);					// Y MANEJO DE ERRORES
-		free(ma);								//
+		free(ma);								// Y MANEJO DE ERRORES
 												//
 	ErrorMarca:									//
-		//free(av->matricula);					//
 		free(av);								//
 												//
 		mysql_free_result(res);					//
