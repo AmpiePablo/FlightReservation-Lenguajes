@@ -1,3 +1,5 @@
+#ifndef STRUCTS_H
+#define STRUCTS_H
 
 struct Marca {
 	char *descripcion;
@@ -56,3 +58,5 @@ struct Reservacion {
 	UsuarioGeneral **usuarios;
 	Asiento **asientos;
 } typedef Reservacion;
+
+#endif
