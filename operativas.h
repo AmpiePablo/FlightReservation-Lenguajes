@@ -1,3 +1,6 @@
+#ifndef OPERATIVAS_H
+#define OPERATIVAS_H
+
 #include <stdio.h>
 #include <mysql/mysql.h>
 #include <stdlib.h>
@@ -5,6 +8,7 @@
 #include <ctype.h>
 
 #include "structs.h"
+#include "get_input.h"
 
 
 void MenuOperativo();
@@ -13,7 +17,7 @@ void IncluirAvion();
 void EliminarAvion();
 void MostrarAviones();
 void DisplayResult(MYSQL_RES*);
-int ExecuteQuery(MYSQL_RES**, const char*);
+int ExecuteQuery(MYSQL_RES**, const char*)
 
 
 typedef struct {
@@ -71,7 +75,7 @@ void MenuOperativo() {
 		if (discard != '\n') {
 			
 			opcion = '-';
-			fflush(stdin);
+			while (getchar() != '\n');
 		}
 		
 		switch (opcion) {
@@ -93,13 +97,13 @@ void MenuOperativo() {
 				break;
 				
 			case '5':
+				free(texto);
 				return;
 				
 			default:
 				puts("Error: Entrada Invalida");
 		}
 	}
-	free(texto);
 }
 
 /*
@@ -147,7 +151,7 @@ void MenuAviones() {
 		if (discard != '\n') {
 			
 			opcion = '-';
-			fflush(stdin);
+			while (getchar() != '\n');
 		}
 		
 		switch (opcion) {
@@ -165,13 +169,13 @@ void MenuAviones() {
 				break;
 				
 			case '4':
+				free(texto);
 				return;
 				
 			default:
 				puts("Error: Entrada Invalida");
 		}
 	}
-	free(texto);
 }
 
 /*
@@ -297,7 +301,7 @@ void IncluirAvion() {
 		av->matricula, ma->descripcion, mo->descripcion, av->anio);						//
 																						//
 	char confirmacion = tolower(getchar());												//
-	fflush(stdin);																		//
+	while(getchar() != '\n');															//
 																						//
 	if (confirmacion != 's') {															//
 		puts("\nEl avion no fue insertado.");											// 
@@ -484,7 +488,24 @@ void DisplayResult(MYSQL_RES *res) {
 		printf("%d. %s\n", i++, row[0]);
 }
 
+/*
+EN PROGRESO
+
 void CargarUsuarios() {
+	
+	puts("\nIngrese la ruta del archivo con los usuarios que se desean cargar\n\n-> "
+	char *ruta = GetInput();
+	
+	FILE *file_ug = fopen(ruta, "r");
+	
+	if (file_ug == NULL) {
+		puts("\nError: No se encontro el archivo\n");
+		goto LiberarRuta;
+	}
+	
+	strcat(ruta, "_reporte");
+	FILE *file_rp = fopen(ruta);
+	
 	;
 	//while not EOF
 	//getline
@@ -492,7 +513,10 @@ void CargarUsuarios() {
 	//append UsuarioGeneral to dynamic array (this step is maybe)
 	//(or otherwise) insert every one as you go, while writing into the reporte file
 	
+	LiberarRuta:
+		free(ruta);
 }
+*/
 
 /*
  * ExecuteQuery
@@ -525,7 +549,7 @@ int ExecuteQuery(MYSQL_RES **res, const char *query) {
 	
 	MYSQL *conn = mysql_init(NULL);
 	
-	if (mysql_real_connect(conn, UD.server, UD.user, UD.password, UD.database, 0, NULL, 0))
+	if (mysql_real_connect(conn, UD.server, UD.user, UD.password, UD.database, 0, NULL, 0) == NULL)
 		return -1;
 	
 	int error = mysql_query(conn, query);
@@ -539,3 +563,5 @@ int ExecuteQuery(MYSQL_RES **res, const char *query) {
 	
 	return 0;
 }
+
+#endif
