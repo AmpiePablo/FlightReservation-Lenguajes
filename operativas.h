@@ -17,7 +17,7 @@ void IncluirAvion();
 void EliminarAvion();
 void MostrarAviones();
 void DisplayResult(MYSQL_RES*);
-int ExecuteQuery(MYSQL_RES**, const char*)
+int ExecuteQuery(MYSQL_RES**, const char*);
 
 
 typedef struct {
@@ -97,7 +97,6 @@ void MenuOperativo() {
 				break;
 				
 			case '5':
-				free(texto);
 				return;
 				
 			default:
@@ -169,7 +168,6 @@ void MenuAviones() {
 				break;
 				
 			case '4':
-				free(texto);
 				return;
 				
 			default:
@@ -232,8 +230,9 @@ void IncluirAvion() {
 	char *input = GetInput();									//
 	int opcion = atoi(input);									// MARCAS
 	free(input);												//
+	printf("%d\n", mysql_num_fields(res));
 																//
-	if (opcion <= 0 || opcion > mysql_num_fields(res)) {		//
+	if (opcion <= 0 || opcion > mysql_num_fields(res)+1) {		//
 		puts("\nError: Marca Invalida\n");						//
 		goto ErrorMarca;										//
 	}															//
@@ -242,20 +241,22 @@ void IncluirAvion() {
 	mysql_data_seek(res, opcion - 1);							//
 	row = mysql_fetch_row(res);									//
 	ma->descripcion = row[0];									//
-	int idMarca = row[1];										//
+	char *idMarca = row[1];										//
 	
 	
-	char *modelo_query;										//
+	char *modelo_query = (char*) malloc((57 + strlen(idMarca)+1) * sizeof(char));										//
 															//
 	sprintf(modelo_query,									//
 		"select descripcion, idModelo "						//
 		"from modelo "										//
-		"where idMarca = %d", idMarca);						//
+		"where idMarca = %s", idMarca);						//
 															//
 	mysql_free_result(res);									//
 	ExecuteQuery(&res, modelo_query);						//
 															//
+	printf("%s\n", modelo_query);
 	free(modelo_query);										//
+	printf("%s\n", "sigue3...1");
 															//
 	puts("\nSelecione un Modelo:\n");						//
 															//
@@ -267,7 +268,7 @@ void IncluirAvion() {
 	opcion = atoi(input);									//
 	free(input);											//
 															//
-	if (opcion <= 0 || opcion > mysql_num_fields(res)) {	//
+	if (opcion <= 0 || opcion > mysql_num_fields(res)+1) {	//
 		puts("\nError: Modelo Invalido\n");					//
 		goto ErrorModelo;									//
 	}														//
@@ -276,17 +277,17 @@ void IncluirAvion() {
 	mysql_data_seek(res, opcion - 1);						//
 	row = mysql_fetch_row(res);								//
 	mo->descripcion = row[0];								//
-	int idModelo = row[1];									//
+	char* idModelo = row[1];								//
 	
 	
 	puts("\nAnio: ");											//
 																//
 	input = GetInput();											//
 	av->anio = atoi(input);										//
-	free(input);												//
 																// AÑO
 	if (av->anio <= 0) {										//
 		puts("\nError: Anio Invalido\n");						//
+		free(input);
 		goto LiberarAvion;										//
 	}															//
 	
@@ -308,34 +309,36 @@ void IncluirAvion() {
 		goto LiberarAvion;																// CONFIRMACIÓN
 	}																					// E INSERCIÓN
 																						//
-	char *insertion_query;																//
+	char *insertion_query = (char*) malloc((56 + strlen(av->matricula) + strlen(input) + strlen(idModelo) + 1) * sizeof(char));																//
 																						//
 	sprintf(insertion_query,															//
-		"insert into avion values ('%s', %d, %d)",										//
-		av->matricula, av.anio, idModelo);												//
+		"insert into avion(matricula,anio,idModelo) values ('%s', %s, %s)",										//
+		av->matricula, input, idModelo);												//
 																						//
 	mysql_free_result(res);																//
 	int error = ExecuteQuery(&res, insertion_query);									//
 																						//
 	free(insertion_query);																//
+	free(input);
 																						//
 	if (error) {																		//
-	    puts("\nError insertando Avion (Asegurese de que la Matricula sea unica)\n");	//
+	    puts("\nError insertando Avion (Asegurese de que la Matricula sea unica)\n");
+	    printf("%d\n", error);	//
 		goto LiberarAvion;																//
 	}																					//
 	printf("\nAvion de matricula %s insertado exitosamente.\n", av->matricula);			//
 	
 	
 	LiberarAvion:								//
-		free(mo->descripcion);					//
+		//free(mo->descripcion);					//
 		free(mo);								//
 												//
 	ErrorModelo:								// LIBERACIÓN DE MEMORIA
-		free(ma->descripcion);					// Y MANEJO DE ERRORES
+		//free(ma->descripcion);					// Y MANEJO DE ERRORES
 		free(ma);								//
 												//
 	ErrorMarca:									//
-		free(av->matricula);					//
+		//free(av->matricula);					//
 		free(av);								//
 												//
 		mysql_free_result(res);					//
@@ -365,17 +368,17 @@ void EliminarAvion() {
 	puts("\nIngrese la Matricula del Avion que desea eliminar:\n\n-> ");
 	char *matricula = GetInput();
 	
-	char *query;
+	char *query = (char*) malloc((195 + strlen(matricula) + 1) * sizeof(char)); 
 	
 	sprintf(query,
-		"select "
-			"av.matricula, ma.descripcion, mo.descripcion, av.anio "
-		"from "
-			"avion av inner join modelo mo "
-			"on avidModelo = mo.idModelo "
-			"inner join marca ma "
-			"on mo.idMarca = ma.idMarca "
-		"where "
+		"select " 
+			"av.matricula, ma.descripcion, mo.descripcion, av.anio " 
+		"from " 
+			"avion av inner join modelo mo " 
+			"on av.idModelo = mo.idModelo " 
+			"inner join marca ma " 
+			"on mo.idMarca = ma.idMarca " 
+		"where " 
 			"av.matricula = '%s'", matricula);
 	
 	ExecuteQuery(&res, query);
@@ -404,10 +407,10 @@ void EliminarAvion() {
 		puts("\nEl avion no fue eliminado.");
 		goto LiberarMatricula;
 	}
+	query = (char*) malloc((38 + strlen(matricula)+1)*sizeof(char));
+	sprintf(query, "delete from avion where matricula = '%s'", matricula);
 	
-	sprintf(query, "delete avion where matricula = '%s'", matricula);
-	
-	int error = ExecuteQuery(&res, query)
+	int error = ExecuteQuery(&res, query);
 	
 	free(query);
 	
@@ -435,7 +438,6 @@ void EliminarAvion() {
  *		
  */
 void MostrarAviones() {
-	
 	MYSQL_RES *res;
 	MYSQL_ROW row;
 	
@@ -444,18 +446,18 @@ void MostrarAviones() {
 			"av.matricula, ma.descripcion, mo.descripcion, av.anio "
 		"from "
 			"avion av inner join modelo mo "
-			"on avion.idModelo = modelo.idModelo "
+			"on av.idModelo = mo.idModelo "
 			"inner join marca ma "
-			"on modelo.idMarca = marca.idMarca ");
-	
+			"on mo.idMarca = ma.idMarca ");
 	while (row = mysql_fetch_row(res)) {
 		
 		printf("Avion: %s\n"
 			"Marca: %s, Modelo: %s, Anio: %d\n\n",
 			row[0], row[1], row[2], row[3]);
 	}
-	
-	mysql_free_result(res);
+	if(!res)
+		mysql_free_result(res);
+	printf("%s\n", "algo4");
 }
 
 /*
@@ -490,7 +492,6 @@ void DisplayResult(MYSQL_RES *res) {
 
 /*
 EN PROGRESO
-
 void CargarUsuarios() {
 	
 	puts("\nIngrese la ruta del archivo con los usuarios que se desean cargar\n\n-> "

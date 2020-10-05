@@ -4,11 +4,12 @@
 #include <ctype.h>
 #include <string.h>
 #include <mysql/mysql.h>
-//#include "operativas.h"
+#include "operativas.h"
 
-
+//MACROS
 #define clear() printf("\033[H\033[J")
 #define CONSULTA_RESERVA "CALL consultaReserva("
+
 
 
 void menuGeneral();
@@ -18,21 +19,50 @@ int ExecuteQuery(MYSQL_RES **res, const char *query);
 int ejecutarConsulta(MYSQL_RES **res, const char *consulta);
 void imprimirConsultaReserva(MYSQL_RES *res);
 
-typedef struct {
+/*typedef struct {
 	char *server;
 	char *user;
 	char *password;
 	char *database;
-} UserData;
-UserData UD = {"localhost", "root", "ampie0422", "vuelos"};
+} UserData;*/
 
+UserData data = {"localhost", "root", "ampie0422", "vuelos"};
 
+/*
+ * main
+ *
+ * Entradas:
+ *		Sin entradas
+ *
+ * Restricciones:
+ *		Sin restricciones
+ *
+ * Objetivo:
+ *		IDireccionar al menu del programa para generar
+ *		los diferentes funcionalidades del sistema
+ *		
+ */
 int main(void){
-	menuGeneral();
+	//menuGeneral();
+	MenuOperativo();
 	return 0;
 }
 
 
+/*
+ * terminarError
+ *
+ * Entradas:
+ *		La conexion con la base de datos en mysql
+ *
+ * Restricciones:
+ *		que entre una conexion o un valor nulo
+ *
+ * Objetivo:
+ *		Identificar si algun proceso, consulta, que se realiza
+ *		para leer, escribir la base de datos es valido o no
+ *		
+ */
 void terminarError(MYSQL *con){
 	fprintf(stderr, "%s\n",mysql_error(con));
 	exit(1);
@@ -72,7 +102,6 @@ void menuGeneral(){
 	  opcion = getchar();
 	  discard = getchar();
 	  if (discard != '\n') {	
-	  	printf("-%c -:-%c-\n",opcion,discard );
 		opcion = '-';
 		while(getchar()!='\n');
 	  }
@@ -91,7 +120,7 @@ void menuGeneral(){
 		case '3':
 		  printf("%s\n", "¡Ha salido exitosamente, gracias!");
 		  //case 3;
-		  free(texto);			
+		 // free(texto);			
 		  return;
 		default:
 		   puts("Error: Entrada Invalida");
@@ -186,7 +215,7 @@ void imprimirConsultaReserva(MYSQL_RES *res){
  * Objetivo:
  *		Conectar el programa con la base de datos de mysql
  *		para así poder realizar la consulta y optener los resultados
- *		esperados por el programa.
+ *		esperados por el programa
  *		
  */
 int ejecutarConsulta(MYSQL_RES **res, const char *consulta){
@@ -194,7 +223,7 @@ int ejecutarConsulta(MYSQL_RES **res, const char *consulta){
 
 	conn = mysql_init(NULL);
 
-	if(!mysql_real_connect(conn,UD.server, UD.user, UD.password, UD.database,0,NULL,0)){
+	if(!mysql_real_connect(conn,data.server, data.user, data.password, data.database,0,NULL,0)){
 		terminarError(conn);
 	}
 	if(mysql_query(conn,(consulta))){
@@ -204,3 +233,4 @@ int ejecutarConsulta(MYSQL_RES **res, const char *consulta){
 	mysql_close(conn);
 	return 0;
 }
+
