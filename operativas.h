@@ -25,6 +25,8 @@ char** Split(char*, char, int*);
 void FreeStrArr(char**, int);
 char* GetLine(FILE *fp);
 
+void EstadoVuelo();
+
 int ExecuteQuery(MYSQL_RES**, const char*);
 
 
@@ -162,12 +164,11 @@ void MenuOperativo() {
 				break;
 				
 			case '2':
-				//caso 2;
 				CargarUsuarios();
 				break;
 				
 			case '3':
-				//case 3;
+				EstadoVuelo();
 				break;
 				
 			case '4':
@@ -835,6 +836,190 @@ void FreeStrArr(char **str_arr, int count) {
 	while (--count >= 0)
 		free(str_arr[count]);
 	free(str_arr);
+}
+
+void EstadoVuelo() {
+	
+	MYSQL_RES *res;
+	MYSQL_ROW row;
+	
+	puts("Ingrese el identificador del vuelo: ");
+	char *idVuelo = GetInput();
+	
+	/********************************************
+	 *			  Primera Consulta				*
+	 ********************************************/
+	
+	char *query = (char*) malloc ( ( 162 + strlen(idVuelo) + 1 ) * sizeof(char) );
+	
+	sprintf(query,
+		"select "
+			"vu.origen, vu.fechaSalida, vu.destino, vu.fechaLlegada, "
+			"av.matricula "
+		"from "
+			"vuelo vu inner join avion av "
+			"on vu.idAvion=av.idAvion "
+		"where "
+			"vu.idVuelo=%s", idVuelo);
+			
+	int error = ExecuteQuery(&res, query);
+	
+	if (error) {
+		puts("Error: Identificador de vuelo invalido\n");
+		goto ErrorID;
+	}
+	
+	row = mysql_fetch_row(res);
+	
+	printf(
+		"Ciudad de Salida:\t\t%s\n"
+		"Fecha y Hora de Salida:\t%s\n"
+		"Ciudad de Arribo:\t\t%s\n"
+		"Fecha y Hora de Arribo:\t%s\n"
+		"\n"
+		"Avion:\t\t\t\t%s\n\n",
+		row[0], row[1], row[2], row[3], row[4]);
+		
+	free(query);
+	mysql_free_result(res);
+	
+	/********************************************
+	 *			  Segunda Consulta				*
+	 ********************************************/
+	 
+	query = (char*) malloc ( (162 + strlen(idVuelo) + 1) * sizeof(char) )
+	
+	sprintf(query,
+		"select "
+			"ta.tipo, ta.precioAdulto, ta.precioInfante "
+		"from "
+			"tipoAsiento ta inner join asiento as "
+			"on ta.idTipoAsiento=as.idTipoAsiento "
+		"where "
+			"as.idVuelo=%s"
+		"order by "
+			"ta.tipo", idVuelo);
+	
+	ExecuteQuery(&res, query);
+	
+	puts("\t\t\tAdulto\tInfante");
+	while (row = mysql_fetch_row(res))
+		printf("Tipo %s:\t%s\t%s\n", row[0], row[1], row[2]);
+	
+	free(query);
+	mysql_free_result(res);
+	
+	/********************************************
+	 *			  Tercera Consulta				*
+	 ********************************************/
+	
+	query = (char*) malloc ( (168 + strlen(idVuelo) + 1) * sizeof(char) )
+	
+	sprintf(query,
+		"select "
+			"as.nombre, as.fila, ta.tipo, as.estaOcupado "
+		"from "
+			"tipoAsiento ta inner join asiento as "
+			"on ta.idTipoAsiento = as.idTipoAsiento "
+		"where "
+			"as.idVuelo=%s "
+		"order by "
+			"as.nombre", idVuelo);
+	
+	ExecuteQuery(&res, query);
+	
+	row = mysql_fetch_row(res);
+	char fila_actual;
+	
+	while (row) {
+		fila_actual = *(row[1]);
+		printf("%c: ", fila_actual);
+		
+		do {
+			printf("%s%c,", row[2], (atoi(row[3])) ? 'O' : 'L');
+			row = mysql_fetch_row(res);
+			
+		} while (*(row[1]) == fila_actual);
+		
+		putchar('\n');
+	}
+	
+	free(query);
+	mysql_free_result(res);
+	
+	/********************************************
+	 *			  Cuarta Consulta				*
+	 ********************************************/
+	 
+	query = (char*) malloc ( (165 + strlen(idVuelo) + 1) * sizeof(char) )
+	
+	sprintf(query,
+		"select "
+			"ta.tipo, sum(~estaOcupado), sum(estaOcupado) "
+		"from "
+			"tipoAsiento ta inner join asiento as "
+			"on ta.idTipoAsiento=as.idTipoAsiento "
+		"where "
+			"as.idVuelo=%s "
+		"group by "
+			"ta.tipo", idVuelo);
+	
+	ExecuteQuery(&res, query);
+	
+	while (row = mysql_fetch_row(res)) {
+		printf("%sL: %s\n", row[0], row[1]);
+		printf("%sL: %s\n", row[0], row[2]);
+	}
+	
+	free(query);
+	mysql_free_result(res);
+	
+	/********************************************
+	 *			  Quinta Consulta				*
+	 ********************************************/
+	 
+	query = (char*) malloc ( (389 + strlen(idVuelo) + 1) * sizeof(char) )
+	
+	sprintf(query,
+		"select "
+			"re.idReservacion, group_concat(ug.pasaporte),"
+			"ta.tipo "
+			"count(as.idAsiento), group_concat(as.nombre)"
+		"from "
+			"reservacion re inner join asiento as "
+			"on re.idReservacion=as.idReservacion "
+			"inner join usuarioXreservacion uxr "
+			"on uxr.idReservacion=re.idReservacion "
+			"inner join usuarioGeneral ug "
+			"on uxr.idUsuarioGeneral=ug.idUsuarioGeneral "
+		"where "
+			"as.idVuelo=%s "
+		"group by "
+			"re.idReservacion, rollup(ta.tipo)", idVuelo);
+	
+	ExecuteQuery(&res, query);
+	
+	while (row = mysql_fetch_row(res);) {
+		printf("Reservacion %s:\n", row[0]);
+		
+		do {
+			printf("%s: %s - %s\n", row[2], row[3], row[4]);
+			row = mysql_fetch_row(res);
+			
+		} while (row[2] != NULL);
+		
+		printf("Pasaportes: %s\n", row[1]);
+		printf("Cantidad de Asientos: %s\n", row[3]);
+		putchar('\n');
+	}
+	
+	free(query);
+	mysql_free_result(res);
+	
+	//Fin / liberación de memoria
+	
+	ErrorID:
+		free(idVuelo);
 }
 
 /*
