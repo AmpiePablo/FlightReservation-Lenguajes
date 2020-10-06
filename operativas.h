@@ -23,6 +23,7 @@ void DisplayResult(MYSQL_RES*);
 void CargarUsuarios();
 char** Split(char*, char, int*);
 void FreeStrArr(char**, int);
+char* GetLine(FILE *fp);
 
 int ExecuteQuery(MYSQL_RES**, const char*);
 
@@ -84,6 +85,7 @@ void LoginOperativo() {
 			printf("Bienvenido, %s!\n", us);
 			
 			MenuOperativo();
+			//no_salir = 0;
 			
 		} else {
 			puts(
@@ -161,6 +163,7 @@ void MenuOperativo() {
 				
 			case '2':
 				//caso 2;
+				CargarUsuarios();
 				break;
 				
 			case '3':
@@ -571,7 +574,7 @@ void CargarUsuarios() {
 	}
 	
 	char *dot = strrchr(ruta, '.');
-	char *ruta_reporte = (char*) malloc ( ( strlen(ruta) + strlen("_reporte") ) * sizeof(char) )
+	char *ruta_reporte = (char*) malloc ( ( strlen(ruta) + strlen("_reporte") ) * sizeof(char) );
 	int i;
 	for (i = 0; (ruta + i) < dot; i++) ruta_reporte[i] = ruta[i];
 	strcpy(ruta_reporte + i, "_reporte");
@@ -583,7 +586,7 @@ void CargarUsuarios() {
 	 *				Recorrer el Archivo				*
 	 ************************************************/
 	
-	MYSQL_RES res*;
+	MYSQL_RES *res;
 	
 	char *line;
 	int s_count;
@@ -591,12 +594,11 @@ void CargarUsuarios() {
 	
 	int q_size;
 	char *query;
-	const char *init_query = "insert into usuarioGeneral(pasaporte,nombre,apellido1,apellido2,fechaNacimiento,sexo)values(";
+	const char *init_query = "insert into usuarioGeneral(pasaporte,nombre,apellido1,apellido2,sexo,fechaNacimiento)values(";
 	char *q_cursor;
 	
 	int error;
-	
-	while (line = GetLine(file_ug)) {
+	while ((line = GetLine(file_ug))!=NULL) {
 		
 		split = Split(line, ',', &s_count);
 		
@@ -614,29 +616,38 @@ void CargarUsuarios() {
 		
 		strcpy(q_cursor, init_query);
 		q_cursor += strlen(init_query);
-		
+
+		printf("%s\n","si entra3" );
+
 		for (int i = 0; i < s_count - 1; i++) {
 			
-			(*q_cursor)++ = '\'';
+			(*q_cursor) = '\'';
+			q_cursor++;
 			strcpy(q_cursor, split[i]);
 			q_cursor += strlen(split[i]);
-			(*q_cursor)++ = '\'';
-			(*q_cursor)++ = ',';
+			(*q_cursor) = '\'';
+			q_cursor++;
+			(*q_cursor) = ',';
+			q_cursor++;
 		}
-		(*q_cursor)++ = '\'';
+
+		(*q_cursor) = '\'';
+		q_cursor++;
 		strcpy(q_cursor, split[s_count - 1]);
 		q_cursor += strlen(split[s_count - 1]);
-		(*q_cursor)++ = '\'';
-		(*q_cursor)++ = ')';
+		(*q_cursor) = '\'';
+		q_cursor++;
+		(*q_cursor) = ')';
+		q_cursor++;
 		*q_cursor = '\0';
 		
 		/****************************************
 		 *	Ejecutar Query y Escribir a Reporte	*
 		 ****************************************/
-		
+		printf("%s\n", query);
 		error = ExecuteQuery(&res, query);
-		
-		if (error == 1046) {
+		printf("%d\n", error);
+		if (error == 1062) {
 			
 			fputs("Repetido\n", file_rp);
 			
@@ -650,10 +661,9 @@ void CargarUsuarios() {
 		}
 		
 		free(line);
-		FreeStrArr(split);
+		FreeStrArr(split,s_count);
 		free(query);
 	}
-	
 	printf("Se ha terminado de recorrer el archivo, revise en %s para ver mas detalles.", ruta_reporte);
 	
 	/************************************************
@@ -774,12 +784,16 @@ int ExecuteQuery(MYSQL_RES **res, const char *query) {
 	
 	int error = mysql_query(conn, query);
 	
-	if (error)
+	if (error){
+		unsigned int error = mysql_errno(conn);
+		mysql_close(conn);
 		return error;
+	}
 	
 	*res = mysql_store_result(conn);
 	
 	mysql_close(conn);
+
 	
 	return 0;
 }
