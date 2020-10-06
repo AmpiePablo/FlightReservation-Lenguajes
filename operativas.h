@@ -19,6 +19,11 @@ void IncluirAvion();
 void EliminarAvion();
 void MostrarAviones();
 void DisplayResult(MYSQL_RES*);
+
+void CargarUsuarios();
+char** Split(char*, char, int*);
+void FreeStrArr(char**, int);
+
 int ExecuteQuery(MYSQL_RES**, const char*);
 
 
@@ -553,11 +558,9 @@ void DisplayResult(MYSQL_RES *res) {
 		printf("%d. %s\n", i++, row[0]);
 }
 
-/*
-EN PROGRESO
 void CargarUsuarios() {
 	
-	puts("\nIngrese la ruta del archivo con los usuarios que se desean cargar\n\n-> "
+	puts("\nIngrese la ruta del archivo con los usuarios que se desean cargar\n\n-> ");
 	char *ruta = GetInput();
 	
 	FILE *file_ug = fopen(ruta, "r");
@@ -567,20 +570,173 @@ void CargarUsuarios() {
 		goto LiberarRuta;
 	}
 	
-	strcat(ruta, "_reporte");
-	FILE *file_rp = fopen(ruta);
+	char *dot = strrchr(ruta, '.');
+	char *ruta_reporte = (char*) malloc ( ( strlen(ruta) + strlen("_reporte") ) * sizeof(char) )
+	int i;
+	for (i = 0; (ruta + i) < dot; i++) ruta_reporte[i] = ruta[i];
+	strcpy(ruta_reporte + i, "_reporte");
+	strcpy(ruta_reporte + i + strlen("_reporte"), dot);
 	
-	;
-	//while not EOF
-	//getline
-	//split (into exactly 4, else write null)
-	//append UsuarioGeneral to dynamic array (this step is maybe)
-	//(or otherwise) insert every one as you go, while writing into the reporte file
+	FILE *file_rp = fopen(ruta_reporte, "w+");
+	
+	/************************************************
+	 *				Recorrer el Archivo				*
+	 ************************************************/
+	
+	MYSQL_RES res*;
+	
+	char *line;
+	int s_count;
+	char **split;
+	
+	int q_size;
+	char *query;
+	const char *init_query = "insert into usuarioGeneral(pasaporte,nombre,apellido1,apellido2,fechaNacimiento,sexo)values(";
+	char *q_cursor;
+	
+	int error;
+	
+	while (line = GetLine(file_ug)) {
+		
+		split = Split(line, ',', &s_count);
+		
+		/****************************************
+		 *			  Formar Query				*
+		 ****************************************/
+		
+		q_size = strlen(init_query) + 3*s_count + 1;
+		for (int i = 0; i < s_count; i++)
+			q_size += strlen(split[i]);
+		
+		query = (char*) malloc (q_size * sizeof(char));
+		
+		q_cursor = query;
+		
+		strcpy(q_cursor, init_query);
+		q_cursor += strlen(init_query);
+		
+		for (int i = 0; i < s_count - 1; i++) {
+			
+			(*q_cursor)++ = '\'';
+			strcpy(q_cursor, split[i]);
+			q_cursor += strlen(split[i]);
+			(*q_cursor)++ = '\'';
+			(*q_cursor)++ = ',';
+		}
+		(*q_cursor)++ = '\'';
+		strcpy(q_cursor, split[s_count - 1]);
+		q_cursor += strlen(split[s_count - 1]);
+		(*q_cursor)++ = '\'';
+		(*q_cursor)++ = ')';
+		*q_cursor = '\0';
+		
+		/****************************************
+		 *	Ejecutar Query y Escribir a Reporte	*
+		 ****************************************/
+		
+		error = ExecuteQuery(&res, query);
+		
+		if (error == 1046) {
+			
+			fputs("Repetido\n", file_rp);
+			
+		} else if (error != 0) {
+			
+			fputs("Error\n", file_rp);
+			
+		} else {
+			
+			fputs("Insertado\n", file_rp);
+		}
+		
+		free(line);
+		FreeStrArr(split);
+		free(query);
+	}
+	
+	printf("Se ha terminado de recorrer el archivo, revise en %s para ver mas detalles.", ruta_reporte);
+	
+	/************************************************
+	 *	Cierre de Archivos y Liberación de Memoria	*
+	 ************************************************/
+	
+	fclose(file_ug);
+	fclose(file_rp);	
+	free(ruta_reporte);
 	
 	LiberarRuta:
 		free(ruta);
 }
-*/
+
+char* GetLine(FILE *fp) {
+	
+	unsigned int size = INIT_SIZE;
+	
+	char *line = (char*) malloc (size * sizeof(char));
+	
+	unsigned int length = 0;
+	
+	char c;
+	
+	while ( ( c = fgetc(fp) ) != '\n' && c != EOF ) {
+		
+		if (length == size) {
+			
+			size += size/2;
+			line = (char*) realloc (line, size * sizeof(char));
+		}
+		line[length++] = c;
+	}
+	
+	if (length == 0) {
+		return NULL;
+		
+	} else {
+		line = (char*) realloc (line, (length + 1) * sizeof(char));
+		line[length] = '\0';
+		
+		return line;
+	}
+}
+
+char** Split(char *str, char splitter, int *return_count) {
+	
+	int str_count = 1;
+	int i, j, k, l;
+	
+	i = 0;
+	while (str[i] != '\0') {
+		while ((str[i] != splitter) & (str[i] != '\0')) i++;
+		str_count += (str[i++] != '\0');
+	}
+	
+	char **result = (char**) malloc (str_count * sizeof(char*));
+	for (i = 0; i < str_count; i++) result[i] = NULL;
+	
+	i = j = k = 0;
+	while (str[k] != '\0') {
+		while ((str[k] != splitter) & (str[k] != '\0')) k++;
+		
+		result[i] = (char*) malloc ( (k - j + 1) * sizeof(char) );
+		
+		l = 0;
+		while (j < k) result[i][l++] = str[j++];
+		
+		result[i++][l] = '\0';
+		
+		j = k = ( k + (str[k] != '\0') );
+	}
+	
+	*return_count = str_count;
+	
+	return result;
+}
+
+void FreeStrArr(char **str_arr, int count) {
+	while (--count >= 0)
+		free(str_arr[count]);
+	free(str_arr);
+}
 
 /*
  * ExecuteQuery
