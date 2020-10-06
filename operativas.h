@@ -28,6 +28,10 @@ char* GetLine(FILE *fp);
 
 void EstadoVuelo();
 
+void VerEstadisticas();
+void TopMayoresVentas();
+void TopMasPasajeros();
+
 int ExecuteQuery(MYSQL_RES**, const char*);
 
 
@@ -173,7 +177,7 @@ void MenuOperativo() {
 				break;
 				
 			case '4':
-				//case 4;
+				VerEstadisticas();
 				break;
 				
 			case '5':
@@ -839,6 +843,29 @@ void FreeStrArr(char **str_arr, int count) {
 	free(str_arr);
 }
 
+/*
+ * EstadoVuelo
+ *
+ * Entradas:
+ *		Una entrada de texto digitada por el usuario
+ *		(por consola)
+ *
+ * Salidas:
+ *		Un gran conjunto de información por la
+ *		salida estándar.
+ *
+ * Restricciones:
+ *		La entrada debe ser un entero y debe coincidir
+ *		con el identificador de un vuelo en la base de datos.
+ *
+ * Objetivo:
+ *		A partir de un identificador de un vuelo, extraerlo
+ *		de la base de datos, y desplegar legiblemente en
+ *		la salida estándar, un conjunto enorme de datos
+ *		relacionados con el vuelo (los datos son especificados
+ *		en el enunciado del proyecto)
+ *		
+ */
 void EstadoVuelo() {
 	
 	MYSQL_RES *res;
@@ -1022,6 +1049,149 @@ void EstadoVuelo() {
 	
 	ErrorID:
 		free(idVuelo);
+}
+
+/*
+ * VerEstadisticas
+ *
+ * Entradas:
+ *		Caracteres digitados por consola para la selección
+ *		de opciones.
+ *
+ * Restricciones:
+ *		Los caracteres que el usuario digite lo llevarán
+ *		a un mensaje de error si no coinciden con
+ *		alguna de las opciones presentadas.
+ *
+ * Objetivo:
+ *		Presentar las opciones de estadísticas al usuario,
+ *		(Top 3 de vuelos de mayor venta y más pasajeros);
+ *		así como permitir que seleccione cualquiera,
+ *		dirigirlo a la opción seleccionada y Regresar.
+ *		
+ */
+void VerEstadisticas() {
+	char opcion;
+	char discard;
+	
+	char *texto =
+		"Estadisticas\n"
+		"\n"
+		"A. Top 3 Vuelos de Mayor Venta\n"
+		"B. Top 3 Vuelos con Mas Pasajeros\n"
+		"C. Regresar\n"
+		"\n->";
+	
+	for (;;) {
+		
+		puts(texto);
+		
+		opcion = tolower(getchar());
+		discard = getchar();
+		
+		if (discard != '\n') {
+			
+			opcion = '-';
+			while (getchar() != '\n');
+		}
+		
+		switch (opcion) {
+			
+			case 'a':
+				TopMayorVenta();
+				break;
+				
+			case 'b':
+				TopMasPasajeros();
+				break;
+				
+			case 'c':
+				return;
+				
+			default:
+				puts("Error: Entrada Invalida");
+		}
+	}
+}
+
+/*
+ * TopMayorVenta
+ *
+ * Salidas:
+ *		El top 3 de vuelos con mayores ventas
+ *		por medio de la consola.
+ *
+ * Objetivo:
+ *		Seleccionar de la base de datos los 3
+ *		vuelos cuyas sumas de ventas en reservaciones
+ *		sea la más alta, para desplegarlas en
+ *		la consola para que el usuario los
+ *		visualice.
+ *		
+ */
+void TopMayorVenta() {
+	
+	MYSQL_RES *res;
+	MYSQL_ROW row;
+	
+	ExecuteQuery(res, 
+		"select top 3 "//distinct?
+			"vu.idVuelo, sum(Monto(re.idReservacion)) "
+		"from "
+			"vuelo vu inner join asiento at "
+			"on vu.idVuelo = at.idVuelo "
+			"inner join reservacion re "
+			"on at.idReservacion = re.idReservacion "
+		"order by "
+			"sum(Monto(re.idReservacion)) desc");
+	
+	int i = 1;
+	
+	while (row = mysql_fetch_row(res))
+		printf("%d. Vuelo: %s, Venta: %s\n", i++, row[0], row[1]);
+	
+	mysql_free_result(res);
+}
+
+/*
+ * TopMasPasajeros
+ *
+ * Salidas:
+ *		El top 3 de vuelos con más pasajeros
+ *		por medio de la consola.
+ *
+ * Objetivo:
+ *		Seleccionar de la base de datos los 3
+ *		vuelos cuyas sumas de pasajeros (incluyendo
+		infantes) sea la más alta, para desplegarlas en
+ *		la consola para que el usuario los
+ *		visualice.
+ *		
+ */
+void TopMasPasajeros() {
+	
+	MYSQL_RES *res;
+	MYSQL_ROW row;
+	
+	ExecuteQuery(res, 
+		"select top 3 "//distinct?
+			"vu.idVuelo, sum(uxr.idUsuarioGeneral) "
+		"from "
+			"vuelo vu inner join asiento at "
+			"on vu.idVuelo = at.idVuelo "
+			"inner join reservacion re "
+			"on at.idReservacion = re.idReservacion "
+			"inner join usuarioXreservacion uxr "
+			"on re.idReservacion = uxr.idReservacion "
+		"order by "
+			"sum(uxr.idUsuarioGeneral) desc");
+	
+	int i = 1;
+	
+	while (row = mysql_fetch_row(res))
+		printf("%d. Vuelo: %s, Pasajeros: %s\n", i++, row[0], row[1]);
+	
+	mysql_free_result(res);
 }
 
 /*
