@@ -1,15 +1,12 @@
-#include <stdio.h>
-#include <stdio.h>
 #include <stdbool.h>
-#include <ctype.h>
-#include <string.h>
-#include <mysql/mysql.h>
 #include "operativas.h"
+#include "PDF_Generator.h"
 
 //MACROS
 #define clear() printf("\033[H\033[J")
 #define CONSULTA_RESERVA "CALL consultaReserva("
 #define CONSULTA_EDAD "CALL diferenciaAnios("
+#define CONSULTA_VUELO "CALL getInfoVuelos("
 #define TAM_MAXIMO 1000
 
 
@@ -24,6 +21,7 @@ void reservarVuelo();
 int validarCedulas(char *array[],int cont);
 int validarAsiento(char *pAsientos[], int cont);
 void creaReservacion(char *pCedulas[],char *pAsientos[],int contCedulas, int contAsientos);
+void generarPDF(char *pCedulas[],char *pAsientos[], int idReservacion,int contCedulas, int contAsientos);	
 
 UserData data = {"localhost", "root", "ampie0422", "vuelos"};
 
@@ -42,8 +40,45 @@ UserData data = {"localhost", "root", "ampie0422", "vuelos"};
  *		
  */
 int main(void){
-	//menuGeneral();
-	LoginOperativo();
+	char opcion;
+	char discard;
+	printf("%s\n", "BIENVENIDO AL SISTEMA DE VUELOS");
+	char *texto=
+	  "|==========Menu Principal==========|\n"
+	  "\n"
+	  "1. Opciones operativas\n"
+      "2. Opciones Generales\n"
+	  "3. Salir\n"
+	  "Digite la opcion que desea realizar:  ";
+	for(;;){
+	  printf("%s",texto);
+	  opcion = getchar();
+	  discard = getchar();
+	  if (discard != '\n') {	
+		opcion = '-';
+		while(getchar()!='\n');
+	  }
+
+	  switch (opcion) {
+	  	case '1':
+		  printf("%s\n", "|===========OPCIONES OPERATIVAS==========|");
+		  LoginOperativo();
+		  break;
+				
+		case '2':
+		  //clear();
+		  printf("%s\n", "|==========OPCIONES GENERALES==========|");
+		  menuGeneral();
+		  break;
+				
+		case '3':
+		 // clear();
+		  printf("%s\n", "¡Ha salido exitosamente, gracias!");		
+		  return 0;
+		default:
+		   puts("Error: Entrada Invalida");
+	  }
+	}
 	return 0;
 }
 
@@ -106,19 +141,20 @@ void menuGeneral(){
 	  switch (opcion) {
 	  	case '1':
 		  printf("%s\n", "|===========Reservación de vuelos===========|");
+		 // clear();
 		  reservarVuelo();
 		  break;
 				
 		case '2':
 		  //clear();
 		  printf("%s\n", "|==========Consulta de Reservación==========|");
+		  //clear();
 		  consultaReservacion();
 		  break;
 				
 		case '3':
-		  printf("%s\n", "¡Ha salido exitosamente, gracias!");
-		  //case 3;
-		 // free(texto);			
+		 // clear();
+		  printf("%s\n", "¡Ha salido exitosamente, gracias!");		
 		  return;
 		default:
 		   puts("Error: Entrada Invalida");
@@ -189,8 +225,9 @@ void imprimirConsultaReserva(MYSQL_RES *res){
 	MYSQL_ROW row;
 	char *arrayColumn[] = {"Reservación","Pasaporte","Nombre","Apellido1","Apellido2","fecha de Reservación","Fila","Asiento","Precio","Origen","Destino" ,"Fecha de Salida"};
 	int fields = mysql_num_fields(res);
-	if(mysql_num_rows(res)<1){
+	if(mysql_num_rows(res)==0){
 		printf("%s\n", "NO SE ENCONTRÓ NINGUNA INFORMACIÓN CON LOS DATOS BRINDADOS");
+		return;
 	}
 	while((row = mysql_fetch_row(res))){
 		for(int i = 0; i < fields; i++){
@@ -254,84 +291,216 @@ int ejecutarConsulta(MYSQL_RES **res, const char *consulta){
  */	
 
 void reservarVuelo(){
-	MYSQL_RES *res;
-	MYSQL_ROW row;
-	char *arrayCedulas[TAM_MAXIMO];
-	char *arrayAsientos[TAM_MAXIMO];
+	MYSQL_RES *res;																										//
+	MYSQL_ROW row;																										//
+	char *arrayCedulas[TAM_MAXIMO];																						//
+	char *arrayAsientos[TAM_MAXIMO];																					//
+																														//
+	printf("%s\n","Digite los pasaportes de la reserva en formato {pasaporte1,pasaporte2,....,pasaporteN}" );			//SOLICITA LOS PASAPORTES Y ASIENTOS
+	int cantCedulas = tomarDatos(arrayCedulas,1);																		//PARA UNA RESERVACION
+	if(cantCedulas == -1) return;																						//
+																														//
+	printf("%s\n","Digite los asientos de reserva para cada pasaporte asignado {asiento1,asiento2,....,asientoN}" );	//
+	int cantAsientos = tomarDatos(arrayAsientos,2);																		//
+	if(cantAsientos == -1) return;																						//
 
-	printf("%s\n","Digite los pasaportes de la reserva en formato {pasaporte1,pasaporte2,....,pasaporteN}" );
-	int cantCedulas = tomarDatos(arrayCedulas,1);
-	if(cantCedulas == -1) return;
-
-	printf("%s\n","Digite los asientos de reserva para cada pasaporte asignado {asiento1,asiento2,....,asientoN}" );
-	int cantAsientos = tomarDatos(arrayAsientos,2);
-	if(cantAsientos == -1) return;
-
-	if(cantCedulas > cantAsientos){
-		int edad;
-		for(int i = 0; i < cantCedulas; i++){
-			char consulta[100];
-			strcpy(consulta,CONSULTA_EDAD);
-			strcat(consulta,arrayCedulas[i]);
-			strcat(consulta,")");
-
-			ejecutarConsulta(&res,consulta);
-			row = mysql_fetch_row(res);
-			edad = atoi(row[0]);
-			printf("%d\n",edad );
-			//edad = strtol(res[0],NULL,10);
-			if(edad <= 3){
-				printf("%s\n","ERROR, No ingresó ningun infante, por favor digite los asientos completos" );
-				break;
-			}
+																														//
+	int cantMenores = 0;																								//
+	if(cantCedulas > cantAsientos){																						//
+		int edad;																										//
+		for(int i = 0; i < cantCedulas; i++){																			//
+			char consulta[100];																							//
+			strcpy(consulta,CONSULTA_EDAD);																				//
+			strcat(consulta,arrayCedulas[i]);																			//
+			strcat(consulta,")");																						//VERIFICA EDAD DEL USUARIO GENERAL
+																														//
+			ejecutarConsulta(&res,consulta);																			//
+			row = mysql_fetch_row(res);																					//
+			edad = atoi(row[0]);																						//
+			mysql_free_result(res);
+																														//
+			if(edad <= 3){																								//
+				cantMenores++;																							//
+				break;																									//
+			}																											//
+		}																												//
+		if(cantMenores == 0){																							//
+			printf("%s\n","ERROR, No ingresó ningun infante, por favor digite los asientos completos" );				//VARIFICA SI HAY MENORES
+			return;																										//
 		}
-	}
-	creaReservacion(arrayCedulas,arrayAsientos,cantCedulas,cantAsientos);
+	}																													//
+	clear();																											//																													//
+	creaReservacion(arrayCedulas,arrayAsientos,cantCedulas,cantAsientos);												// ENVIA DATOS A LA RESERVA
 
 }
+
+/*
+ * creaReservacion
+ *
+ * Entradas:
+ *		Un conjunto de caracteres que son, cedulas, asientos, la cantidad de cada uno...
+ *
+ * Restricciones:
+ *		Que la base de datos esté conectados para poder hacer las consultas
+ *		y que los asientos, cedulas, esten validadas correctamente
+ *
+ *
+ * Objetivo:
+ *		tomar un conjunto de pasaportes de usuarios, y nombres de asientos en un vuelo
+ *		para reservar y hacer las diferentes consultas, inserts dentro de la base de datos
+ *		de mysql para poder completar el proceso de reservación
+ */	
+
 
 void creaReservacion(char *pCedulas[],char *pAsientos[],int contCedulas, int contAsientos){
 	MYSQL_RES *res;
 	MYSQL_ROW row;
-	//inserto la reservacion
-	char *insertQuery = (char*) malloc((46 * sizeof(char)));
-	sprintf(insertQuery,
-		"insert into reservacion(fecha) "
-		"values(now()) ");
-	ejecutarConsulta(&res,insertQuery);
-	mysql_free_result(res);
+	
+	char *insertQuery = (char*) malloc((46 * sizeof(char)));		//
+	sprintf(insertQuery,											//
+		"insert into reservacion(fecha) "							//INSERT RESERVACION
+		"values(now()) ");											//
+	ejecutarConsulta(&res,insertQuery);								//
+	mysql_free_result(res);											//
 
 
 	//extraigo ultima reserva
-	int id = 0;
-	ejecutarConsulta(&res,"select MAX(idReservacion) from reservacion;");
+	int idReservacion = 0;															//
+	ejecutarConsulta(&res,"select MAX(idReservacion) from reservacion;");			//
+	row = mysql_fetch_row(res);														//TOMA ID RESERVACIÓN CREADA
+	idReservacion = atoi(row[0]);													//
+	mysql_free_result(res);															//
+
+
+
+	char *idUsuario;																//
+	int idUsuarioInt;																//
+	char *insertReserva;															//
+	for(int i = 0; i < contCedulas; i++){											//
+		idUsuario = (char*) malloc((64 +strlen(pCedulas[i])+1) * sizeof(char));		//
+		sprintf(idUsuario,															//
+			"select idUsuarioGeneral "												//TOMA EL USUARIO GENERAL QUE FUE INCRESADO POR EL USUARIO
+			"from usuarioGeneral "													//
+			"where pasaporte = '%s'", pCedulas[i]);									//	
+																					//
+		ejecutarConsulta(&res,idUsuario);											//
+		row = mysql_fetch_row(res);													//
+		idUsuarioInt = atoi(row[0]);												//
+		mysql_free_result(res);														//
+
+
+		insertReserva = (char*) malloc((80  * sizeof(char)));						//
+		sprintf(insertReserva,														//
+			"insert into usuarioXreservacion(idUsuarioGeneral,idReservacion) "		//
+			"values( '%d','%d' )",idUsuarioInt,idReservacion);						//
+		ejecutarConsulta(&res,insertReserva);										//INSERTA EL USUARUIOXRESERVACION PARA HACER LOS JOINS
+		mysql_free_result(res);														//
+	}																				//
+																					//
+																					//
+	char *updateAsiento;																				//
+	for(int j = 0; j < contAsientos; j++){																//
+		updateAsiento = (char*) malloc((72 +strlen(pAsientos[j])+1) * sizeof(char));					//
+		sprintf(updateAsiento,																			//
+			"update asiento set "																		//ASIGNA EL ASIENTO A LA RESERVACION
+			"estaOcupado = 1,idReservacion = '%d' where nombre = '%s'",idReservacion,pAsientos[j]);		//OCUPA EL ASIENTO
+		ejecutarConsulta(&res,updateAsiento);															//
+		mysql_free_result(res);																			//
+	}																									//
+																										//
+	free(insertQuery);																						//
+	free(idUsuario);																						//
+	free(insertReserva);																					//
+	free(updateAsiento);																					//Limpia la memoria imprime el comprobante
+	printf("%s\n","¡LA RESERVACIÓN FUE CREADA CON ÉXITO!" );												//
+	generarPDF(pCedulas,pAsientos,idReservacion,contCedulas,contAsientos);									//
+}
+
+
+/*
+ * generarPDF
+ *
+ * Entradas:
+ *		usuarioGenerales(pasaporte), asientos(nombres),reservacion,cantidades
+ *
+ * Restricciones:
+ *		Que la base de datos esté conectados para poder hacer las consultas
+ *		y que esten los datos necesarios para la impresion
+ *
+ *
+ * Objetivo:
+ *		tomar un conjunto de datos que esten relacionados a una reservacion
+ *		para poder enviarlos al header pdf_creator y este pueda crear un pdf 
+ *		con toda la información mencionada, lo que se conoce como factura o comprobante
+ */	
+
+void generarPDF(char *pCedulas[],char *pAsientos[], int idReservacion,int contCedulas, int contAsientos){
+	MYSQL_RES *res;
+	MYSQL_ROW row;
+	char *fecha;
+	ExecuteQuery(&res,"select now()");
 	row = mysql_fetch_row(res);
-	id = atoi(row[0]);
+	fecha = strdup(row[0]);
+	mysql_free_result(res);
 
-	char *idUsuario;
-	int idUsuarioInt;
+	char *queryVuelo = (char*) malloc((25 * sizeof(char)));
+	sprintf(queryVuelo,"call getInfoVuelos('%d')",idReservacion);
+	ejecutarConsulta(&res,queryVuelo);
 
-	if(contCedulas>contAsientos){
-		for(int i = 0; i < contCedulas; i++){
-			idUsuario = (char*) malloc((64 +strlen(pCedulas[i])+1) * sizeof(char));
-			sprintf(idUsuario,
-				"select idUsuarioGeneral "
-				"from usuarioGeneral "
-				"where pasaporte = '%s'", pCedulas[i]);
+	row = mysql_fetch_row(res);
+	char *origen = row[1];
+	char *fechaSalida = row[2];
+	char *destino = row[3];
+	char *fechaLlegada = row[4];
+	mysql_free_result(res);
+	//printf("%s : %s : %s : %s\n",origen,fechaSalida,destino,fechaLlegada);
+	generar(idReservacion, fecha,pCedulas,pAsientos,origen,fechaSalida, destino,fechaLlegada,contCedulas,contAsientos);
+	printf("%s\n", "|COMPROBANTE DE RESERVACIÓN|");
+	printf("NÚMERO DE RESERVACIÓN: %d\n",idReservacion);
+	printf("FECHA DE RESERVACIÓN: %s\n", fecha);
+	printf("ORIGEN DEL VUELO: %s\n", origen);
+	printf("FECHA DE SALIDA: %s\n", fechaSalida);
+	printf("DESTINO DEL VUELO: %s\n", destino);
+	printf("FECHA D LLEGADA: %s\n", fechaLlegada);
 
-			ejecutarConsulta(&res,idUsuario);
-			row = mysql_fetch_row(res);
-			idUsuarioInt = atoi(row[0]);
-		}
-	}
-
-	printf("%d\n->",id );
-
-
+	char *usuarios;
+	printf("%s\n","USUARIOS DE LA RESERVA: ");
 	for(int i = 0; i < contCedulas; i++){
-		printf("%s\n", pCedulas[i]);
+		usuarios = (char*) malloc ((94 + (strlen(pCedulas[i])+1)) * sizeof(char));
+		sprintf(usuarios,
+			"select u.pasaporte,u.nombre,u.apellido1,u.apellido2 "
+			"from usuarioGeneral u "
+			"where pasaporte = '%s'",pCedulas[i]);
+		ejecutarConsulta(&res,usuarios);
+		row = mysql_fetch_row(res);
+		printf("PASAPORTE DE USUARIO: %s\n", row[0]);
+		printf("NOMBRE DE USUARIO: %s\n", row[1]);
+		printf("PRIMER APELLIDO DE USUARIO: %s\n", row[2]);
+		printf("SEGUNDO APELLIDO DE USUARIO: %s\n", row[3]);
 	}
-	free(insertQuery);
+
+	char *asientos;
+	printf("%s\n","ASIENTOS DE LA RESERVA: ");
+	for(int i = 0; i < contAsientos; i++){
+		asientos = (char*) malloc ((55 + (strlen(pAsientos[i])+1)) * sizeof(char));
+		sprintf(asientos,
+			"select a.fila,a.nombre "
+			"from asiento a "
+			"where nombre = '%s'",pAsientos[i]);
+		ejecutarConsulta(&res,asientos);
+		row = mysql_fetch_row(res);
+		printf("FILA ASIENTO: %s\n", row[0]);
+		printf("NOMBRE ASIENTO: : %s\n", row[1]);
+	}
+
+	free(queryVuelo);
+	free(usuarios);
+	free(asientos);
+	free(fecha);
+	mysql_free_result(res);
+
+
+
 }
 
 /*

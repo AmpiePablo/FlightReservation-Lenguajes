@@ -110,12 +110,31 @@ CREATE TABLE `vuelos`.`usuarioXreservacion` (
 
 
 /***********************PROCEDIMIENTOS ALMACENADOS*******************************/
+/*
+ * consultaReserva
+ *
+ * Entradas:
+ *    Una reservacion (identificador) y un usuarioGeneral(pasaporte)
+ *
+ * Salidas:
+ *    información relevante sobre una reservación, como precio, informacion
+ *    general del usuario, informacion del vuelo
+ *
+ * Restricciones:
+ *    que la reservacion y el pasaporte existan de lo contrario retorna nulo
+ *
+ * Objetivo:
+ *    consulta en la base datos si hay una reservacion relacionada al pasaporte
+ *    de un usuario y a la reserva de un usuario.
+ *    
+ */
+
 delimiter //
 CREATE PROCEDURE consultaReserva(in pIdReservacion int, in pPasaporte varchar(25))
 BEGIN
   select uxr.idReservacion, uG.pasaporte, uG.nombre,
   uG.apellido1, uG.apellido2,R.fecha,A.fila, A.nombre,
-  tA.precioAdulto,v.origen,v.destino,v.fechaSalida
+  tA.precioInfante,v.origen,v.destino,v.fechaSalida
   from usuarioXreservacion uxr
   inner join usuarioGeneral uG on (uxr.idUsuarioGeneral=uG.idUsuarioGeneral)
   inner join reservacion R on (uxr.idReservacion = R.idReservacion)
@@ -126,6 +145,79 @@ BEGIN
 END //
 
 
+CREATE FUNCTION Monto(@idReservacion int)
+returns decimal(10,2) 
+as
+begin
+
+  declare @ret decimal(10,2)
+  select @ret = sum(ta.precioAdulto) + (count(ug.idUsuarioGeneral) - count(as.idAsiento))*max(as.precioInfante)
+  from
+    reservacion re inner join asiento as
+    on re.idReservacion = as.idReservacion
+    inner join usuarioXreservacion uxr
+    on uxr.idReservacion = re.idReservacion
+    inner join usuarioGeneral ug
+    on uxr.idUsuarioGeneral = ug.idUsuarioGeneral
+  where
+    re.idReservacion = @idReservacion
+  return @ret
+end
+
+
+/*
+ * eliminarReservacion
+ *
+ * Entradas:
+ *    datos de un usuarioGeneral (pasaporte)
+ *
+ * Salidas:
+ *    un entero representa la edad del usuarioGeneral dado
+ *
+ * Restricciones:
+ *    una entrada de tipo varchar(25) que en c sería un char * 
+ *    de tamaño 25
+ *
+ * Objetivo:
+ *    consulta en la base datos la edad que tiene un usuario o un dueño de un pasaporte
+ *    
+ */
+delimiter //
+CREATE PROCEDURE eliminarReservacion(in pIdReservacion int, in pPasaporte varchar(25))
+BEGIN
+  update asiento set idReservacion = NULL,estaOcupado=0 where idReservacion=pIdReservacion;
+
+  declare pIdUsarioGeneral int;
+  select idUsuarioGeneral into pIdUsarioGeneral from usuarioGeneral where pasaporte=pPasaporte;
+  delete from usuarioXreservacion where idUsuarioGeneral = pIdUsarioGeneral;
+
+  delete from reservacion where idReservacion=pIdReservacion;
+
+END //
+
+
+
+
+
+
+
+/*
+ * diferenciaAnios
+ *
+ * Entradas:
+ *    datos de un usuarioGeneral (pasaporte)
+ *
+ * Salidas:
+ *    un entero representa la edad del usuarioGeneral dado
+ *
+ * Restricciones:
+ *    una entrada de tipo varchar(25) que en c sería un char * 
+ *    de tamaño 25
+ *
+ * Objetivo:
+ *    consulta en la base datos la edad que tiene un usuario o un dueño de un pasaporte
+ *    
+ */
 CREATE PROCEDURE diferenciaAnios(in pPasaporte varchar(25))
   begin 
     declare fechaNaci date; 
@@ -133,8 +225,52 @@ CREATE PROCEDURE diferenciaAnios(in pPasaporte varchar(25))
     select timestampdiff(YEAR,fechaNaci,now()); 
   end //
 
+/*
+ * getInfoVuelo
+ *
+ * Entradas:
+ *    Una reservacion especificamente el identificador de la reserva
+ *
+ * Salidas:
+ *    información relevante sobre un vuelo
+ *    como origen,destino, fechas entre otros.
+ *
+ * Restricciones:
+ *    Que el id de la reservación existe o se haya procesado con anterioridad
+ *
+ * Objetivo:
+ *    consulta en la base datos los datos de un vuelo, siempre y cuando
+ *    el vuelo este relacionado con una reservación.
+ *    
+ */
+delimiter //
+create procedure getInfoVuelo(in idReservacion int)
+  begin
+    select a.idAsiento,v.origen,v.fechaSalida,v.destino,v.fechaLlegada
+    from asiento inner join reservacion r  on (a.idReservacion=r.idReservacion)
+    inner join vuelo v on (a.idVuelo=v.idVuelo)
+    where a.idReservacion=idReservacion and r.idReservacion=idReservacion;
+  end //
 
-
+/*
+ * validaPasaporte
+ *
+ * Entradas:
+ *    datos de un usuarioGeneral (pasaporte)
+ *
+ * Salidas:
+ *    un estado 0-1 que verifica si existe o no un pasaporte
+ *    retorna 1 si existe y 0 si no
+ *
+ * Restricciones:
+ *    una entrada de tipo varchar(25) que en c sería un char * 
+ *    de tamaño 25
+ *
+ * Objetivo:
+ *    consulta en la base datos si hay un pasaporte como el que 
+ *    se ingresa de entrada en la función
+ *    
+ */
 CREATE FUNCTION validaPasaporte(in pPasaporte varchar(25))
   BEGIN
     returns int deterministic
@@ -147,6 +283,26 @@ CREATE FUNCTION validaPasaporte(in pPasaporte varchar(25))
 
 
 
+
+/*
+ * identifcaInfante
+ *
+ * Entradas:
+ *    Datos de usuario general especificamente un pasaporte
+ *
+ * Salidas:
+ *    Un char(1) (1,0) que dice si un pasaporte pertenece a un infante
+ *    en caso de pertenecerlo retorna 1 de lo contrario 0
+ *
+ * Restricciones:
+ *    Que entre un pasaporte que exista dentro de la base de datos
+ *
+ * Objetivo:
+ *    Verifica en la base de datos si un usuario dueño de pasaporte pertenece a un
+ *    infante o a un adutlo, toma la fechaActual y verifica si es menor que 3 
+ *    para ver si es infante o no
+ *    
+ */
 CREATE PROCEDURE identificaInfante( in pPasaporte varchar(25))
   BEGIN
     DECLARE actual datetime;
@@ -161,7 +317,7 @@ CREATE PROCEDURE identificaInfante( in pPasaporte varchar(25))
     DECLARE fechaNacimiento date;
     set fechaNacimiento = select fechaNacimiento from usuarioGeneral where pasaporte=pPasaporte;
 
-    if((select actual - select fechaNacimiento) >=15 ) BEGIN
+    if((select actual - select fechaNacimiento) > 3 ) BEGIN
       select result2;
     END ELSE BEGIN
       SELECT result1;
@@ -210,6 +366,12 @@ insert into asiento(nombre,fila,estaOcupado,idTipoAsiento,idVuelo,idReservacion)
 values('B_BL_2','B',0,7,1,2);
 insert into asiento(nombre,fila,estaOcupado,idTipoAsiento,idVuelo,idReservacion) 
 values('C_SL_2','C',0,8,1,2);
+
+insert into asiento(nombre,fila,estaOcupado,idTipoAsiento,idVuelo,idReservacion) 
+values('C_SL_3','C',0,8,1,1);
+
+insert into asiento(nombre,fila,estaOcupado,idTipoAsiento,idVuelo,idReservacion) 
+values('C_SL_3','C',0,8,1,1);
 
 insert into usuarioXreservacion(idUsuarioGeneral,idReservacion) values(1,1);
 insert into usuarioXreservacion(idUsuarioGeneral,idReservacion) values(2,2);
