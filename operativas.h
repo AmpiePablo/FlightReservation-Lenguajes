@@ -72,13 +72,11 @@ void LoginOperativo() {
 			"from "
 				"usuarioOperativo "
 			"where "
-				"username='%s' and contrasenia='%s'", us, pw)
+				"username='%s' and contrasenia='%s'", us, pw);
 		
 		ExecuteQuery(&res, query);
-		
-		if (res != NULL) {
+		if (mysql_num_rows(res)>0) {
 			printf("Bienvenido, %s!\n", us);
-			mysql_free_result(res);
 			
 			MenuOperativo();
 			
@@ -97,6 +95,7 @@ void LoginOperativo() {
 		free(us);
 		free(pw);
 		free(query);
+		mysql_free_result(res);
 		
 	} while (no_salir);
 }
@@ -122,7 +121,6 @@ void LoginOperativo() {
  *		
  */
 void MenuOperativo() {
-	
 	char opcion;
 	char discard;
 	
@@ -303,7 +301,7 @@ void IncluirAvion() {
 	int opcion = atoi(input);									// MARCAS
 	free(input);												//
 																//
-	if (opcion <= 0 || opcion > mysql_num_fields(res)+1) {		//
+	if (opcion <= 0 || opcion > mysql_num_rows(res)) {			//
 		puts("\nError: Marca Invalida\n");						//
 		goto ErrorMarca;										//
 	}															//
@@ -337,7 +335,7 @@ void IncluirAvion() {
 	opcion = atoi(input);									//
 	free(input);											//
 															//
-	if (opcion <= 0 || opcion > mysql_num_fields(res)+1) {	//
+	if (opcion <= 0 || opcion > mysql_num_rows(res)) {		//
 		puts("\nError: Modelo Invalido\n");					//
 		goto ErrorModelo;									//
 	}														//
@@ -523,7 +521,6 @@ void MostrarAviones() {
 	}
 	if(!res)
 		mysql_free_result(res);
-	printf("%s\n", "algo4");
 }
 
 /*
