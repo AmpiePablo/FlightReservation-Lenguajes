@@ -113,19 +113,60 @@ CREATE TABLE `vuelos`.`usuarioXreservacion` (
 delimiter //
 CREATE PROCEDURE consultaReserva(in pIdReservacion int, in pPasaporte varchar(25))
 BEGIN
-  select usuarioXreservacion.idReservacion, usuarioGeneral.pasaporte, usuarioGeneral.nombre,
-  usuarioGeneral.apellido1, usuarioGeneral.apellido2,reservacion.fecha,asiento.fila, asiento.nombre,
-  tipoAsiento.precioAdulto,vuelo.origen,vuelo.destino,vuelo.fechaSalida from usuarioXreservacion
-  inner join usuarioGeneral on (usuarioXreservacion.idUsuarioGeneral=usuarioGeneral.idUsuarioGeneral)
-  inner join reservacion on (usuarioXreservacion.idReservacion = reservacion.idReservacion)
-  inner join asiento on (reservacion.idReservacion=asiento.idReservacion)
-  inner join tipoAsiento on (asiento.idTipoAsiento=tipoAsiento.idTipoAsiento)
-  inner join vuelo on(asiento.idVuelo=vuelo.idVuelo)
-  where usuarioXreservacion.idReservacion = pIdReservacion and usuarioGeneral.pasaporte = pPasaporte
-  order by pasaporte
+  select uxr.idReservacion, uG.pasaporte, uG.nombre,
+  uG.apellido1, uG.apellido2,R.fecha,A.fila, A.nombre,
+  tA.precioAdulto,v.origen,v.destino,v.fechaSalida
+  from usuarioXreservacion uxr
+  inner join usuarioGeneral uG on (uxr.idUsuarioGeneral=uG.idUsuarioGeneral)
+  inner join reservacion R on (uxr.idReservacion = R.idReservacion)
+  inner join asiento A on (R.idReservacion=A.idReservacion)
+  inner join tipoAsiento tA on (A.idTipoAsiento=tA.idTipoAsiento)
+  inner join vuelo v on(A.idVuelo=v.idVuelo)
+  where uxr.idReservacion = pIdReservacion and uxr.idUsuarioGeneral = uG.idUsuarioGeneral and uG.pasaporte=pPasaporte;
 END //
 
 
+CREATE PROCEDURE diferenciaAnios(in pPasaporte varchar(25))
+  begin 
+    declare fechaNaci date; 
+    select fechaNacimiento into fechaNaci from usuarioGeneral where pasaporte=pPasaporte; 
+    select timestampdiff(YEAR,fechaNaci,now()); 
+  end //
+
+
+
+CREATE FUNCTION validaPasaporte(in pPasaporte varchar(25))
+  BEGIN
+    returns int deterministic
+    IF not exists(select pasaporte from usuarioGeneral where pasaporte=pPasaporte) then
+      return 0;
+    ELSE
+      return 1;
+    else if;
+  END //
+
+
+
+CREATE PROCEDURE identificaInfante( in pPasaporte varchar(25))
+  BEGIN
+    DECLARE actual datetime;
+    set actual = now();
+
+    DECLARE result1 char(1);
+    set result1 = '1';
+
+    DECLARE result2 char(1);
+    set result2 = '0';
+
+    DECLARE fechaNacimiento date;
+    set fechaNacimiento = select fechaNacimiento from usuarioGeneral where pasaporte=pPasaporte;
+
+    if((select actual - select fechaNacimiento) >=15 ) BEGIN
+      select result2;
+    END ELSE BEGIN
+      SELECT result1;
+    END
+  END //
 
 
 
