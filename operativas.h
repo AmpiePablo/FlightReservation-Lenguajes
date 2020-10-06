@@ -1,3 +1,4 @@
+ 
 #ifndef OPERATIVAS_H
 #define OPERATIVAS_H
 
@@ -872,12 +873,12 @@ void EstadoVuelo() {
 	row = mysql_fetch_row(res);
 	
 	printf(
-		"Ciudad de Salida:\t\t%s\n"
+		"Ciudad de Salida:\t%s\n"
 		"Fecha y Hora de Salida:\t%s\n"
-		"Ciudad de Arribo:\t\t%s\n"
+		"Ciudad de Arribo:\t%s\n"
 		"Fecha y Hora de Arribo:\t%s\n"
 		"\n"
-		"Avion:\t\t\t\t%s\n\n",
+		"Avion:\t\t\t%s\n\n",
 		row[0], row[1], row[2], row[3], row[4]);
 		
 	free(query);
@@ -887,22 +888,21 @@ void EstadoVuelo() {
 	 *			  Segunda Consulta				*
 	 ********************************************/
 	 
-	query = (char*) malloc ( (162 + strlen(idVuelo) + 1) * sizeof(char) )
+	query = (char*) malloc ( (172 + strlen(idVuelo) + 1) * sizeof(char) );
 	
 	sprintf(query,
-		"select "
+		"select distinct "
 			"ta.tipo, ta.precioAdulto, ta.precioInfante "
 		"from "
-			"tipoAsiento ta inner join asiento as "
-			"on ta.idTipoAsiento=as.idTipoAsiento "
+			"tipoAsiento ta inner join asiento at "
+			"on ta.idTipoAsiento=at.idTipoAsiento "
 		"where "
-			"as.idVuelo=%s"
+			"at.idVuelo=%s "
 		"order by "
 			"ta.tipo", idVuelo);
 	
 	ExecuteQuery(&res, query);
-	
-	puts("\t\t\tAdulto\tInfante");
+	puts("\tAdulto\tInfante");
 	while (row = mysql_fetch_row(res))
 		printf("Tipo %s:\t%s\t%s\n", row[0], row[1], row[2]);
 	
@@ -913,21 +913,20 @@ void EstadoVuelo() {
 	 *			  Tercera Consulta				*
 	 ********************************************/
 	
-	query = (char*) malloc ( (168 + strlen(idVuelo) + 1) * sizeof(char) )
+	query = (char*) malloc ( (168 + strlen(idVuelo) + 1) * sizeof(char) );
 	
 	sprintf(query,
 		"select "
-			"as.nombre, as.fila, ta.tipo, as.estaOcupado "
+			"at.nombre, at.fila, ta.tipo, at.estaOcupado "
 		"from "
-			"tipoAsiento ta inner join asiento as "
-			"on ta.idTipoAsiento = as.idTipoAsiento "
+			"tipoAsiento ta inner join asiento at "
+			"on ta.idTipoAsiento = at.idTipoAsiento "
 		"where "
-			"as.idVuelo=%s "
+			"at.idVuelo=%s "
 		"order by "
-			"as.nombre", idVuelo);
+			"at.nombre", idVuelo);
 	
 	ExecuteQuery(&res, query);
-	
 	row = mysql_fetch_row(res);
 	char fila_actual;
 	
@@ -939,11 +938,10 @@ void EstadoVuelo() {
 			printf("%s%c,", row[2], (atoi(row[3])) ? 'O' : 'L');
 			row = mysql_fetch_row(res);
 			
-		} while (*(row[1]) == fila_actual);
+		} while ((row) && *(row[1]) == fila_actual);
 		
 		putchar('\n');
 	}
-	
 	free(query);
 	mysql_free_result(res);
 	
@@ -951,16 +949,16 @@ void EstadoVuelo() {
 	 *			  Cuarta Consulta				*
 	 ********************************************/
 	 
-	query = (char*) malloc ( (165 + strlen(idVuelo) + 1) * sizeof(char) )
+	query = (char*) malloc ( (165 + strlen(idVuelo) + 1) * sizeof(char) );
 	
 	sprintf(query,
 		"select "
-			"ta.tipo, sum(~estaOcupado), sum(estaOcupado) "
+			"ta.tipo, sum(-estaOcupado+1), sum(estaOcupado) "
 		"from "
-			"tipoAsiento ta inner join asiento as "
-			"on ta.idTipoAsiento=as.idTipoAsiento "
+			"tipoAsiento ta inner join asiento at "
+			"on ta.idTipoAsiento=at.idTipoAsiento "
 		"where "
-			"as.idVuelo=%s "
+			"at.idVuelo=%s "
 		"group by "
 			"ta.tipo", idVuelo);
 	
@@ -968,7 +966,7 @@ void EstadoVuelo() {
 	
 	while (row = mysql_fetch_row(res)) {
 		printf("%sL: %s\n", row[0], row[1]);
-		printf("%sL: %s\n", row[0], row[2]);
+		printf("%sO: %s\n", row[0], row[2]);
 	}
 	
 	free(query);
@@ -978,28 +976,31 @@ void EstadoVuelo() {
 	 *			  Quinta Consulta				*
 	 ********************************************/
 	 
-	query = (char*) malloc ( (389 + strlen(idVuelo) + 1) * sizeof(char) )
+	query = (char*) malloc ( (456 + strlen(idVuelo) + 1) * sizeof(char) );
 	
 	sprintf(query,
 		"select "
 			"re.idReservacion, group_concat(ug.pasaporte),"
-			"ta.tipo "
-			"count(as.idAsiento), group_concat(as.nombre)"
+			"ta.tipo,"
+			"count(at.idAsiento), group_concat(at.nombre)"
 		"from "
-			"reservacion re inner join asiento as "
-			"on re.idReservacion=as.idReservacion "
+			"reservacion re inner join asiento at "
+			"on re.idReservacion=at.idReservacion "
+			"inner join tipoAsiento ta "
+			"on at.idTipoAsiento=ta.idTipoAsiento "
 			"inner join usuarioXreservacion uxr "
 			"on uxr.idReservacion=re.idReservacion "
 			"inner join usuarioGeneral ug "
 			"on uxr.idUsuarioGeneral=ug.idUsuarioGeneral "
 		"where "
-			"as.idVuelo=%s "
+			"at.idVuelo=%s "
 		"group by "
-			"re.idReservacion, rollup(ta.tipo)", idVuelo);
+			"re.idReservacion, ta.tipo with rollup", idVuelo);
+	//printf("%s\n",query);
 	
 	ExecuteQuery(&res, query);
-	
-	while (row = mysql_fetch_row(res);) {
+	row = mysql_fetch_row(res);
+	while (row[0]!=NULL) {
 		printf("Reservacion %s:\n", row[0]);
 		
 		do {
@@ -1011,6 +1012,7 @@ void EstadoVuelo() {
 		printf("Pasaportes: %s\n", row[1]);
 		printf("Cantidad de Asientos: %s\n", row[3]);
 		putchar('\n');
+		row = mysql_fetch_row(res);
 	}
 	
 	free(query);
