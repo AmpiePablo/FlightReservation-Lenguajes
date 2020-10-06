@@ -561,6 +561,36 @@ void DisplayResult(MYSQL_RES *res) {
 		printf("%d. %s\n", i++, row[0]);
 }
 
+/*
+ * CargarUsuarios
+ *
+ * Entradas:
+ *		Una ruta a un archivo de texto plano
+ *		(por consola)
+ *
+ * Salidas:
+ *		Un conjunto de tuplas de usuarios generales
+ *		en la base de datos, y un archivo con el
+ *		reporte en el directorio del archivo original
+ *
+ * Restricciones:
+ *		La ruta tiene que existir, y los datos
+ *		que contengan tienen que ser correctos y
+ *		completos.
+ *
+ * Objetivo:
+ *		Recibir la ruta a un archivo, con un 
+ *		conjunto de líneas con datos de usuarios
+ *		en un formato específico (especificado
+ *		en el enunciado del Proyecto), e insertar
+ *		todos los usuarios especificados (que sean
+ *		válidos) a la bse de datos. También
+ *		crear un archivo de reporte, y en él escribir
+ *		por cada usuario que se intentó insertar, si
+ *		fue insertado, si estaba repetido o si estaba
+ *		erróneo.
+ *		
+ */
 void CargarUsuarios() {
 	
 	puts("\nIngrese la ruta del archivo con los usuarios que se desean cargar\n\n-> ");
@@ -678,6 +708,28 @@ void CargarUsuarios() {
 		free(ruta);
 }
 
+/*
+ * GetLine
+ *
+ * Entradas:
+ *		Un puntero a un objeto FILE
+ *
+ * Salidas:
+ *		Una línea del archivo (secuencia de
+ *		caracteres hasta encontrar un salto
+ *		de línea)
+ *
+ * Restricciones:
+ *		El archivo tiene que haber sido abierto
+ *		en un modo que permita que sea leído.
+ *
+ * Objetivo:
+ *		Avanzar el cursor del archivo, escribiendo
+ *		caracteres a un arreglo de caracteres, formando
+ *		un char* y en donde hubiera un salto de línea,
+ *		delimitarlo con '\0'
+ *		
+ */
 char* GetLine(FILE *fp) {
 	
 	unsigned int size = INIT_SIZE;
@@ -709,6 +761,27 @@ char* GetLine(FILE *fp) {
 	}
 }
 
+/*
+ * Split
+ *
+ * Entradas:
+ *		Una cadena de caracteres, un caracter
+ *		delimitador, y un puntero a un entero
+ *
+ * Salidas:
+ *		Un arreglo de cadenas de caracteres
+ *		(retorno de función), y la cantidad de
+ *		cadenas de caracteres en el arreglo
+ *		(parámetro de retorno)
+ *
+ * Objetivo:
+ *		Tomar una cadena de caracteres, y generar
+ *		un resultado con todas las cadenas de
+ *		caracteres que se obtendrían al dividir
+ *		la cadena original en cada lugar donde se
+ *		encuentre el caracter delimitador.
+ *		
+ */
 char** Split(char *str, char splitter, int *return_count) {
 	
 	int str_count = 1;
@@ -742,6 +815,22 @@ char** Split(char *str, char splitter, int *return_count) {
 	return result;
 }
 
+/*
+ * FreeStrArr
+ *
+ * Entradas:
+ *		Un arreglo de cadenas de caracteres y un entero
+ *
+ * Restricciones:
+ *		El entero debe tener la cantidad de cadenas de
+ *		caracteres que posee el arreglo
+ *
+ * Objetivo:
+ *		Liberar la memoria de todas las cadenas de
+ *		caracteres del arreglo, y luego liberar el
+ *		puntero del arreglo.
+ *		
+ */
 void FreeStrArr(char **str_arr, int count) {
 	while (--count >= 0)
 		free(str_arr[count]);
