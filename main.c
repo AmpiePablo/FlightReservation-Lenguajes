@@ -16,12 +16,13 @@ void consultaReservacion();
 int ExecuteQuery(MYSQL_RES **res, const char *query);
 int ejecutarConsulta(MYSQL_RES **res, const char *consulta);
 void imprimirConsultaReserva(MYSQL_RES *res);
-int tomarDatos(char *array[],int iter);
+int tomarDatos(char *array[],int iter,char *idVuelo);
 void reservarVuelo();
 int validarCedulas(char *array[],int cont);
-int validarAsiento(char *pAsientos[], int cont);
+int validarAsiento(char *pAsientos[], int cont,char* idVuelo);
 void creaReservacion(char *pCedulas[],char *pAsientos[],int contCedulas, int contAsientos);
 void generarPDF(char *pCedulas[],char *pAsientos[], int idReservacion,int contCedulas, int contAsientos);	
+
 
 UserData data = {"localhost", "root", "ampie0422", "vuelos"};
 
@@ -66,13 +67,10 @@ int main(void){
 		  break;
 				
 		case '2':
-		  //clear();
 		  printf("%s\n", "|==========OPCIONES GENERALES==========|");
 		  menuGeneral();
 		  break;
-				
 		case '3':
-		 // clear();
 		  printf("%s\n", "¡Ha salido exitosamente, gracias!");		
 		  return 0;
 		default:
@@ -292,16 +290,17 @@ int ejecutarConsulta(MYSQL_RES **res, const char *consulta){
 
 void reservarVuelo(){
 	MYSQL_RES *res;																										//
-	MYSQL_ROW row;																										//
+	MYSQL_ROW row;		
+	char *idVuelo = EstadoVuelo();																						//
 	char *arrayCedulas[TAM_MAXIMO];																						//
 	char *arrayAsientos[TAM_MAXIMO];																					//
 																														//
 	printf("%s\n","Digite los pasaportes de la reserva en formato {pasaporte1,pasaporte2,....,pasaporteN}" );			//SOLICITA LOS PASAPORTES Y ASIENTOS
-	int cantCedulas = tomarDatos(arrayCedulas,1);																		//PARA UNA RESERVACION
+	int cantCedulas = tomarDatos(arrayCedulas,1,idVuelo);																		//PARA UNA RESERVACION
 	if(cantCedulas == -1) return;																						//
 																														//
 	printf("%s\n","Digite los asientos de reserva para cada pasaporte asignado {asiento1,asiento2,....,asientoN}" );	//
-	int cantAsientos = tomarDatos(arrayAsientos,2);																		//
+	int cantAsientos = tomarDatos(arrayAsientos,2,idVuelo);																//
 	if(cantAsientos == -1) return;																						//
 
 																														//
@@ -328,8 +327,7 @@ void reservarVuelo(){
 			printf("%s\n","ERROR, No ingresó ningun infante, por favor digite los asientos completos" );				//VARIFICA SI HAY MENORES
 			return;																										//
 		}
-	}																													//
-	clear();																											//																													//
+	}																													//																									//																													//
 	creaReservacion(arrayCedulas,arrayAsientos,cantCedulas,cantAsientos);												// ENVIA DATOS A LA RESERVA
 
 }
@@ -371,7 +369,7 @@ void creaReservacion(char *pCedulas[],char *pAsientos[],int contCedulas, int con
 	idReservacion = atoi(row[0]);													//
 	mysql_free_result(res);															//
 
-
+RESERVACIÓN
 
 	char *idUsuario;																//
 	int idUsuarioInt;																//
@@ -453,7 +451,6 @@ void generarPDF(char *pCedulas[],char *pAsientos[], int idReservacion,int contCe
 	char *destino = row[3];
 	char *fechaLlegada = row[4];
 	mysql_free_result(res);
-	//printf("%s : %s : %s : %s\n",origen,fechaSalida,destino,fechaLlegada);
 	generar(idReservacion, fecha,pCedulas,pAsientos,origen,fechaSalida, destino,fechaLlegada,contCedulas,contAsientos);
 	printf("%s\n", "|COMPROBANTE DE RESERVACIÓN|");
 	printf("NÚMERO DE RESERVACIÓN: %d\n",idReservacion);
@@ -518,7 +515,7 @@ void generarPDF(char *pCedulas[],char *pAsientos[], int idReservacion,int contCe
  *		para poder realizar una reservación de un asiento en un vuelo
  *		llama a funciones para validar todo lo que sea necesario
  */	
-int tomarDatos(char *array[], int iter){
+int tomarDatos(char *array[], int iter,char *idVuelo){
 	char *cadena;
 	printf("%s","-->" );
 	cadena = GetInput();
@@ -546,7 +543,7 @@ int tomarDatos(char *array[], int iter){
 		else return cont;
 	}
 	else{
-		if(validarAsiento(array,cont)==-1)return -1;
+		if(validarAsiento(array,cont,idVuelo)==-1)return -1;
 		else return cont;	
 	} 
 	return cont;
@@ -618,7 +615,7 @@ int validarCedulas(char *pCedulas[],int cont){
  *		o bien verifica que el asiento este disponible
  *
  */	
-int validarAsiento(char *pAsientos[], int cont){
+int validarAsiento(char *pAsientos[], int cont,char *idVuelo){
 	MYSQL_RES *res;
 	MYSQL_ROW row;
 
@@ -636,6 +633,21 @@ int validarAsiento(char *pAsientos[], int cont){
 
 		if(mysql_num_rows(res) <1 ){
 			printf("%s%s%s\n", "ERROR, el asiento: ",pAsientos[i]," No existe en la base de datos/Se encuentra reservado");
+			return -1;
+		}
+		free(asientoQuery);
+	}
+	for(int j = 0; j < cont; j++){
+		asientoQuery = (char*) malloc((79+ strlen(pAsientos[j])+1) * sizeof(char));
+
+		sprintf(asientoQuery,
+		"select idVuelo "
+		"from asiento "
+		"where idVuelo = '%s' and nombre = '%s'",idVuelo, pAsientos[j]);
+		ejecutarConsulta(&res, asientoQuery);
+
+		if(mysql_num_rows(res) ==0 ){
+			printf("%s%s%s\n", "ERROR, el asiento: ",pAsientos[j]," No está registrado con el vuelo que seleccionó");
 			return -1;
 		}
 	}
