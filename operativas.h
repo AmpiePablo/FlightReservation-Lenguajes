@@ -20,17 +20,19 @@ void IncluirAvion();
 void EliminarAvion();
 void MostrarAviones();
 void DisplayResult(MYSQL_RES*);
+void ReservacionesVuelos(char*);
+void VerEstadisticas();
+void TopMayorVenta();
+void TopMasPasajeros();
+
+
 
 void CargarUsuarios();
 char** Split(char*, char, int*);
 void FreeStrArr(char**, int);
 char* GetLine(FILE *fp);
 
-void EstadoVuelo();
-
-void VerEstadisticas();
-void TopMayoresVentas();
-void TopMasPasajeros();
+char* EstadoVuelo();
 
 int ExecuteQuery(MYSQL_RES**, const char*);
 
@@ -137,7 +139,7 @@ void LoginOperativo() {
 void MenuOperativo() {
 	char opcion;
 	char discard;
-	
+	char *idVuelo;
 	char *texto =
 		"Menu Operativo\n"
 		"\n"
@@ -173,10 +175,15 @@ void MenuOperativo() {
 				break;
 				
 			case '3':
-				EstadoVuelo();
+				idVuelo = EstadoVuelo();
+				if(idVuelo != NULL){
+					ReservacionesVuelos(idVuelo);
+				}
+				free(idVuelo);
 				break;
 				
 			case '4':
+				//case 4;
 				VerEstadisticas();
 				break;
 				
@@ -404,7 +411,6 @@ void IncluirAvion() {
 																						//
 	if (error) {																		//
 	    puts("\nError insertando Avion (Asegurese de que la Matricula sea unica)\n");	//
-	    printf("%d\n", error);															//
 		goto LiberarAvion;																//
 	}																					//
 	printf("\nAvion de matricula %s insertado exitosamente.\n", av->matricula);			//
@@ -530,7 +536,7 @@ void MostrarAviones() {
 	while (row = mysql_fetch_row(res)) {
 		
 		printf("Avion: %s\n"
-			"Marca: %s, Modelo: %s, Anio: %d\n\n",
+			"Marca: %s, Modelo: %s, Anio: %s\n\n",
 			row[0], row[1], row[2], row[3]);
 	}
 	if(!res)
@@ -643,8 +649,10 @@ void CargarUsuarios() {
 		 ****************************************/
 		
 		q_size = strlen(init_query) + 3*s_count + 1;
-		for (int i = 0; i < s_count; i++)
-			q_size += strlen(split[i]);
+		for (int i = 0; i < s_count; i++){
+			if(split[i])
+				q_size += strlen(split[i]);
+		}
 		
 		query = (char*) malloc (q_size * sizeof(char));
 		
@@ -653,14 +661,15 @@ void CargarUsuarios() {
 		strcpy(q_cursor, init_query);
 		q_cursor += strlen(init_query);
 
-		printf("%s\n","si entra3" );
 
 		for (int i = 0; i < s_count - 1; i++) {
 			
 			(*q_cursor) = '\'';
 			q_cursor++;
-			strcpy(q_cursor, split[i]);
-			q_cursor += strlen(split[i]);
+			if(split[i]){				
+				strcpy(q_cursor, split[i]);
+				q_cursor += strlen(split[i]);
+			}
 			(*q_cursor) = '\'';
 			q_cursor++;
 			(*q_cursor) = ',';
@@ -669,8 +678,10 @@ void CargarUsuarios() {
 
 		(*q_cursor) = '\'';
 		q_cursor++;
-		strcpy(q_cursor, split[s_count - 1]);
-		q_cursor += strlen(split[s_count - 1]);
+		if(split[s_count - 1]){
+			strcpy(q_cursor, split[s_count - 1]);
+			q_cursor += strlen(split[s_count - 1]);
+		}
 		(*q_cursor) = '\'';
 		q_cursor++;
 		(*q_cursor) = ')';
@@ -680,9 +691,7 @@ void CargarUsuarios() {
 		/****************************************
 		 *	Ejecutar Query y Escribir a Reporte	*
 		 ****************************************/
-		printf("%s\n", query);
 		error = ExecuteQuery(&res, query);
-		printf("%d\n", error);
 		if (error == 1062) {
 			
 			fputs("Repetido\n", file_rp);
@@ -852,7 +861,8 @@ void FreeStrArr(char **str_arr, int count) {
  *
  * Salidas:
  *		Un gran conjunto de información por la
- *		salida estándar.
+ *		salida estándar, y una cadena de caracteres
+ *		con el id de vuelo.
  *
  * Restricciones:
  *		La entrada debe ser un entero y debe coincidir
@@ -865,8 +875,9 @@ void FreeStrArr(char **str_arr, int count) {
  *		relacionados con el vuelo (los datos son especificados
  *		en el enunciado del proyecto)
  *		
- */
-void EstadoVuelo() {
+ */	
+
+char* EstadoVuelo() {
 	
 	MYSQL_RES *res;
 	MYSQL_ROW row;
@@ -894,7 +905,8 @@ void EstadoVuelo() {
 	
 	if (error) {
 		puts("Error: Identificador de vuelo invalido\n");
-		goto ErrorID;
+		free(idVuelo);
+		return NULL;
 	}
 	
 	row = mysql_fetch_row(res);
@@ -908,14 +920,13 @@ void EstadoVuelo() {
 		"Avion:\t\t\t%s\n\n",
 		row[0], row[1], row[2], row[3], row[4]);
 		
-	free(query);
 	mysql_free_result(res);
 	
 	/********************************************
 	 *			  Segunda Consulta				*
 	 ********************************************/
 	 
-	query = (char*) malloc ( (172 + strlen(idVuelo) + 1) * sizeof(char) );
+	query = (char*) realloc (query,(172 + strlen(idVuelo) + 1) * sizeof(char) );
 	
 	sprintf(query,
 		"select distinct "
@@ -933,15 +944,13 @@ void EstadoVuelo() {
 	while (row = mysql_fetch_row(res))
 		printf("Tipo %s:\t%s\t%s\n", row[0], row[1], row[2]);
 	
-	free(query);
 	mysql_free_result(res);
 	
 	/********************************************
 	 *			  Tercera Consulta				*
 	 ********************************************/
 	
-	query = (char*) malloc ( (168 + strlen(idVuelo) + 1) * sizeof(char) );
-	
+	query = (char*) realloc ( query,(168 + strlen(idVuelo) + 1) * sizeof(char) );
 	sprintf(query,
 		"select "
 			"at.nombre, at.fila, ta.tipo, at.estaOcupado "
@@ -969,14 +978,13 @@ void EstadoVuelo() {
 		
 		putchar('\n');
 	}
-	free(query);
 	mysql_free_result(res);
 	
 	/********************************************
 	 *			  Cuarta Consulta				*
 	 ********************************************/
 	 
-	query = (char*) malloc ( (165 + strlen(idVuelo) + 1) * sizeof(char) );
+	query = (char*) realloc (query, (165 + strlen(idVuelo) + 1) * sizeof(char) );
 	
 	sprintf(query,
 		"select "
@@ -991,25 +999,50 @@ void EstadoVuelo() {
 	
 	ExecuteQuery(&res, query);
 	
-	while (row = mysql_fetch_row(res)) {
+	while (row = mysql_fetch_row(res)){
 		printf("%sL: %s\n", row[0], row[1]);
 		printf("%sO: %s\n", row[0], row[2]);
 	}
-	
 	free(query);
 	mysql_free_result(res);
-	
-	/********************************************
-	 *			  Quinta Consulta				*
-	 ********************************************/
-	 
-	query = (char*) malloc ( (456 + strlen(idVuelo) + 1) * sizeof(char) );
+	return idVuelo;
+}
+
+
+/*
+ * ReservacionesVuelo
+ *
+ * Entradas:
+ *		Una cadena de caracteres por parámetro.
+ *
+ * Salidas:
+ *		Información de todas las reservaciones de un
+ *		vuelo por salida estándar.
+ *
+ * Restricciones:
+ *		La entrada debe coincidir con el identificador de un
+ *		vuelo en la base de datos.
+ *
+ * Objetivo:
+ *		A partir de un identificador de un vuelo, extraerlo
+ *		de la base de datos, y desplegar legiblemente en
+ *		la salida estándar, los datos relevantes sobre
+ *		todas las reservaciones asociadas al vuelo (los
+ *		datos son especificados en el enunciado del proyecto)
+ *		
+ */
+
+void ReservacionesVuelos(char * idVuelo){
+	MYSQL_RES *res;
+	MYSQL_ROW row;
+	char *query = (char*) malloc ( (481 + strlen(idVuelo) + 1) * sizeof(char) );
 	
 	sprintf(query,
 		"select "
 			"re.idReservacion, group_concat(ug.pasaporte),"
 			"ta.tipo,"
-			"count(at.idAsiento), group_concat(at.nombre)"
+			"count(at.idAsiento), group_concat(at.nombre),"
+			"Monto(re.idReservacion) "
 		"from "
 			"reservacion re inner join asiento at "
 			"on re.idReservacion=at.idReservacion "
@@ -1023,7 +1056,6 @@ void EstadoVuelo() {
 			"at.idVuelo=%s "
 		"group by "
 			"re.idReservacion, ta.tipo with rollup", idVuelo);
-	//printf("%s\n",query);
 	
 	ExecuteQuery(&res, query);
 	row = mysql_fetch_row(res);
@@ -1038,18 +1070,16 @@ void EstadoVuelo() {
 		
 		printf("Pasaportes: %s\n", row[1]);
 		printf("Cantidad de Asientos: %s\n", row[3]);
+		printf("Monto: %s\n", row[5]);
 		putchar('\n');
 		row = mysql_fetch_row(res);
 	}
 	
 	free(query);
-	mysql_free_result(res);
-	
-	//Fin / liberación de memoria
-	
-	ErrorID:
-		free(idVuelo);
+	mysql_free_result(res);	
+
 }
+
 
 /*
  * VerEstadisticas
@@ -1134,19 +1164,20 @@ void TopMayorVenta() {
 	MYSQL_RES *res;
 	MYSQL_ROW row;
 	
-	ExecuteQuery(res, 
-		"select top 3 "//distinct?
+	ExecuteQuery(&res, 
+		"select "//distinct?
 			"vu.idVuelo, sum(Monto(re.idReservacion)) "
 		"from "
 			"vuelo vu inner join asiento at "
 			"on vu.idVuelo = at.idVuelo "
 			"inner join reservacion re "
 			"on at.idReservacion = re.idReservacion "
+		"group by vu.idVuelo "
 		"order by "
-			"sum(Monto(re.idReservacion)) desc");
+			"sum(Monto(re.idReservacion)) desc LIMIT 3");
 	
 	int i = 1;
-	
+	printf("%s\n", "aquí");
 	while (row = mysql_fetch_row(res))
 		printf("%d. Vuelo: %s, Venta: %s\n", i++, row[0], row[1]);
 	
@@ -1173,8 +1204,8 @@ void TopMasPasajeros() {
 	MYSQL_RES *res;
 	MYSQL_ROW row;
 	
-	ExecuteQuery(res, 
-		"select top 3 "//distinct?
+	ExecuteQuery(&res, 
+		"select "//distinct?
 			"vu.idVuelo, sum(uxr.idUsuarioGeneral) "
 		"from "
 			"vuelo vu inner join asiento at "
@@ -1183,8 +1214,9 @@ void TopMasPasajeros() {
 			"on at.idReservacion = re.idReservacion "
 			"inner join usuarioXreservacion uxr "
 			"on re.idReservacion = uxr.idReservacion "
+		"group by vu.idVuelo "
 		"order by "
-			"sum(uxr.idUsuarioGeneral) desc");
+			"sum(uxr.idUsuarioGeneral) desc LIMIT 3");
 	
 	int i = 1;
 	
@@ -1193,6 +1225,9 @@ void TopMasPasajeros() {
 	
 	mysql_free_result(res);
 }
+
+
+
 
 /*
  * ExecuteQuery

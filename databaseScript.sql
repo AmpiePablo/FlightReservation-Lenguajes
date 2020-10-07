@@ -104,11 +104,6 @@ CREATE TABLE `vuelos`.`usuarioXreservacion` (
 	CONSTRAINT `fk_idReservacion2` FOREIGN KEY(`idReservacion`) REFERENCES `reservacion`(`idReservacion`)
 );
 
-
-
-
-
-
 /***********************PROCEDIMIENTOS ALMACENADOS*******************************/
 /*
  * consultaReserva
@@ -145,26 +140,6 @@ BEGIN
 END //
 
 
-CREATE FUNCTION Monto(@idReservacion int)
-returns decimal(10,2) 
-as
-begin
-
-  declare @ret decimal(10,2)
-  select @ret = sum(ta.precioAdulto) + (count(ug.idUsuarioGeneral) - count(as.idAsiento))*max(as.precioInfante)
-  from
-    reservacion re inner join asiento as
-    on re.idReservacion = as.idReservacion
-    inner join usuarioXreservacion uxr
-    on uxr.idReservacion = re.idReservacion
-    inner join usuarioGeneral ug
-    on uxr.idUsuarioGeneral = ug.idUsuarioGeneral
-  where
-    re.idReservacion = @idReservacion
-  return @ret
-end
-
-
 /*
  * eliminarReservacion
  *
@@ -179,7 +154,8 @@ end
  *    de tamaño 25
  *
  * Objetivo:
- *    consulta en la base datos la edad que tiene un usuario o un dueño de un pasaporte
+ *    elimina todo lo relaciona a una reservación que contenga el mismo identificadorr
+ *    de la reserva y el pasaporte que ingresa para no eliminar todo.
  *    
  */
 delimiter //
@@ -324,7 +300,44 @@ CREATE PROCEDURE identificaInfante( in pPasaporte varchar(25))
     END
   END //
 
+/*
+ * Monto
+ *
+ * Entradas:
+ *    Un entero como id
+ *
+ * Salidas:
+ *    Un decimal(10,2)
+ *
+ * Restricciones:
+ *    El entero debe coincidir con un idReservacion
+ *    de la tabla vuelos.reservaciones
+ *
+ * Objetivo:
+ *    Sumar los montos de todos los asientos
+ *    relacionados a la reservación, y el monto
+ *    de asiento para cualquier infante que contenga
+ *    la reservación, también.
+ *    
+ */
 
+create function Monto(ID int)
+returns decimal(10,2)
+begin
+  return (
+    select 
+      sum(ta.precioAdulto) + (count(uxr.idUsuarioGeneral) - count(at.idAsiento))*max(ta.precioInfante)
+    from
+      reservacion re inner join asiento at
+      on re.idReservacion = at.idReservacion
+      inner join tipoAsiento ta
+      on at.idTipoAsiento = ta.idTipoAsiento
+      inner join usuarioXreserva uxr
+      on re.idReservacion = uxr.idReservacion
+    where
+      re.idReservacion = ID
+    );
+end;
 
 
 /***********************INSERTS IN TABLES***************************************/
